@@ -1,13 +1,13 @@
-import mongoose from "mongoose";
-import dotenv from "dotenv";
-
-dotenv.config();
+import mongoose from 'mongoose';
 
 export async function connectToMongoDB() {
   try {
+
     await mongoose.connect(process.env.DB_URI!, {
       socketTimeoutMS: 30000,
       connectTimeoutMS: 30000,
+      ssl: true,
+      sslValidate: false
     });
 
     console.log("✅ MongoDB conectado");
