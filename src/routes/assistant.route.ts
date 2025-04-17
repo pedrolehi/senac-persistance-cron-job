@@ -1,15 +1,15 @@
-import { FastifyInstance } from 'fastify';
-import { Assistant } from '../schemas/assistant.schema';
+import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { AssistantService } from "./../services/assistant.service";
+import { AssistantController } from "../controllers/assistant.controller";
 
 export async function assistantRoute(fastify: FastifyInstance) {
-  fastify.get('/assistants', async (request, reply) => {
-    const assistants = await Assistant.find();
-    return assistants;
-  });
+  const assistantService = AssistantService.getInstance();
+  const assistantController = new AssistantController(assistantService);
 
-  fastify.get('/assistants/:id', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const assistant = await Assistant.findOne({ assistantId: id });
-    return assistant;
-  });
+  fastify.get(
+    "/assistant",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      return assistantController.listAssistants(request, reply);
+    }
+  );
 }

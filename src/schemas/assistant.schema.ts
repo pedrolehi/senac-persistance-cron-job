@@ -1,9 +1,30 @@
-import mongoose from 'mongoose';
+import { z } from "zod";
 
-const assistantSchema = new mongoose.Schema({
-  assistantId: { type: String, required: true, unique: true },
-  name: { type: String, required: true },
-  collectionName: { type: String, required: true }
+export const AssistantSchema = z.object({
+  assistant_id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  language: z.string(),
+  created: z.string().datetime(),
+  updated: z.string().datetime(),
+  environment_id: z.string().optional(),
+  workspace_id: z.string().optional(),
+  status: z.enum(["Available", "Unavailable", "Training"]),
 });
 
-export const Assistant = mongoose.model('Assistant', assistantSchema);
+export const AssistantResponseSchema = z.object({
+  assistants: z.array(AssistantSchema),
+  pagination: z
+    .object({
+      refresh_url: z.string().optional(),
+      next_url: z.string().optional(),
+      total: z.number().optional(),
+      matched: z.number().optional(),
+    })
+    .optional(),
+});
+
+// Types
+
+export type Assistant = z.infer<typeof AssistantSchema>;
+export type AssistantResponse = z.infer<typeof AssistantResponseSchema>;
