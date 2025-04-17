@@ -6,8 +6,6 @@ dotenv.config();
 export async function connectToMongoDB() {
   try {
     await mongoose.connect(process.env.DB_URI!, {
-      ssl: true,
-      tlsInsecure: true, // use isso com cuidado — ideal apenas para testes locais
       socketTimeoutMS: 30000,
       connectTimeoutMS: 30000,
     });
