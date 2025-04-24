@@ -17,7 +17,7 @@ export const LogSchema = z.object({
 export const LogCollectionSchema = z.object({
   logs: z.array(LogSchema),
   pagination: z.object({
-    next_url: z.string().optional(),
+    next_url: z.string().nullable().optional(),
     matched: z.number().optional(),
     refresh_url: z.string().optional(),
   }),

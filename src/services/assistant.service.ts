@@ -65,12 +65,55 @@ export class AssistantService implements IAssistantService {
     pageLimit: number = 100
   ): Promise<LogCollection> {
     try {
-      const response = await this.assistant.listLogs({
-        assistantId,
-        pageLimit,
-        // filter: `request_timestamp>=${startDate.toISOString()},request_timestamp<=${endDate.toISOString()}`,
-      });
-      return response.result;
+      let allLogs: LogCollection = { logs: [], pagination: { next_url: null } };
+      let currentResponse;
+      let cursor: string | null = null;
+
+      do {
+        // Configuração da requisição inicial ou com cursor
+        const params: any = {
+          assistantId,
+          pageLimit,
+          filter: `request_timestamp>=${startDate.toISOString()},request_timestamp<=${endDate.toISOString()}`,
+        };
+
+        // Adiciona o cursor se existir
+        if (cursor) {
+          params.cursor = cursor;
+        }
+
+        // Faz a requisição para a API do Watson
+        currentResponse = await this.assistant.listLogs(params);
+
+        // Concatena os logs da página atual com os logs já coletados
+        allLogs.logs = [...allLogs.logs, ...currentResponse.result.logs];
+
+        // Extrai o cursor da próxima página se existir
+        if (currentResponse.result.pagination.next_url) {
+          // Usa uma regex para extrair o cursor da URL
+          const cursorMatch =
+            currentResponse.result.pagination.next_url.match(/cursor=([^&]+)/);
+          cursor = cursorMatch ? cursorMatch[1] : null;
+        } else {
+          cursor = null;
+        }
+
+        // Log para debug
+        console.log(
+          `Fetched ${currentResponse.result.logs.length} logs. Total so far: ${allLogs.logs.length}`
+        );
+        if (cursor) {
+          console.log(`Next cursor: ${cursor}`);
+        }
+      } while (cursor !== null);
+
+      // Atualiza a paginação final
+      allLogs.pagination = { next_url: null };
+
+      // Log do total final
+      console.log(`Total logs fetched: ${allLogs.logs.length}`);
+
+      return allLogs;
     } catch (error) {
       console.error(
         `Error fetching logs for assistant environment_id ${assistantId}`,
@@ -87,13 +130,13 @@ export class AssistantService implements IAssistantService {
     const assistants = await this.listAssistants();
     const logsMap = new Map();
 
-    console.log("Assistants:", assistants);
+    // console.log("Assistants:", assistants);
     for (const assistant of assistants.assistants) {
+      console.log("Fetching data from assistant:", assistant.name);
       // Procura o environment "live"
       const liveEnv = assistant.assistant_environments.find(
         (env) => env.name === "live"
       );
-      console.log(liveEnv);
 
       if (!liveEnv) {
         console.warn(

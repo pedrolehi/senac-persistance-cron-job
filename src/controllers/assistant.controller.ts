@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { IAssistantService } from "../interfaces/assistant.interface";
 import { QueryParams } from "../interfaces/query.interface";
+import { getTimeInterval } from "../utils/timeParser";
 
 export class AssistantController {
   constructor(private readonly assistantService: IAssistantService) {}
@@ -24,14 +25,7 @@ export class AssistantController {
     reply: FastifyReply
   ): Promise<FastifyReply> {
     try {
-      // Pega parâmetros da query com valores default
-      const startDate = request.query.startDate
-        ? new Date(request.query.startDate)
-        : new Date(Date.now() - 24 * 60 * 60 * 1000); // último dia por padrão
-
-      const endDate = request.query.endDate
-        ? new Date(request.query.endDate)
-        : new Date();
+      const { startDate, endDate } = getTimeInterval();
 
       // Valida as datas
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
