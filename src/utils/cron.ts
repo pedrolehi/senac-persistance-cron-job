@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import { AssistantService } from "../services/assistant.service";
+import { systemConfig } from "../config/system.config";
 
 export class CronJobs {
   private static instance: CronJobs;
@@ -35,8 +36,9 @@ export class CronJobs {
   }
 
   public startJobs() {
+    const cronInterval = systemConfig.cronInterval; // Intervalo em minutos
     // Agenda o job para rodar a cada 50 minutos
-    cron.schedule("*/50 * * * *", () => {
+    cron.schedule(`*/${cronInterval} * * * *`, () => {
       console.log("[CRON] Iniciando job de coleta de logs...");
       this.fetchLogsJob();
     });

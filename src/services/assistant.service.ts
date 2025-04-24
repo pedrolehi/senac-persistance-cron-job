@@ -66,55 +66,57 @@ export class AssistantService implements IAssistantService {
   ): Promise<LogCollection> {
     try {
       let allLogs: LogCollection = { logs: [], pagination: { next_url: null } };
-      let currentResponse;
       let cursor: string | null = null;
+      let currentResponse;
 
       do {
-        // Configuração da requisição inicial ou com cursor
         const params: any = {
           assistantId,
           pageLimit,
           filter: `request_timestamp>=${startDate.toISOString()},request_timestamp<=${endDate.toISOString()}`,
         };
+        if (cursor) params.cursor = cursor;
 
-        // Adiciona o cursor se existir
-        if (cursor) {
-          params.cursor = cursor;
-        }
-
-        // Faz a requisição para a API do Watson
         currentResponse = await this.assistant.listLogs(params);
 
-        // Concatena os logs da página atual com os logs já coletados
+        // LOG DOS HEADERS DE RATE LIMIT
+        const headers = currentResponse.headers;
+        console.log(
+          `[IBM Watson Rate Limit] X-RateLimit-Remaining: ${headers["x-ratelimit-remaining"]}`
+        );
+        console.log(
+          `[IBM Watson Rate Limit] X-RateLimit-Limit: ${headers["x-ratelimit-limit"]}`
+        );
+        console.log(
+          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${headers["x-ratelimit-reset"]}`
+        );
+
         allLogs.logs = [...allLogs.logs, ...currentResponse.result.logs];
 
-        // Extrai o cursor da próxima página se existir
         if (currentResponse.result.pagination.next_url) {
-          // Usa uma regex para extrair o cursor da URL
           const cursorMatch =
             currentResponse.result.pagination.next_url.match(/cursor=([^&]+)/);
           cursor = cursorMatch ? cursorMatch[1] : null;
         } else {
           cursor = null;
         }
-
-        // Log para debug
-        console.log(
-          `Fetched ${currentResponse.result.logs.length} logs. Total so far: ${allLogs.logs.length}`
-        );
-        if (cursor) {
-          console.log(`Next cursor: ${cursor}`);
-        }
       } while (cursor !== null);
 
-      // Atualiza a paginação final
       allLogs.pagination = { next_url: null };
-
-      // Log do total final
-      console.log(`Total logs fetched: ${allLogs.logs.length}`);
-
       return allLogs;
-    } catch (error) {
+    } catch (error: any) {
+      // Se o erro for 429, tente logar os headers também
+      if (error.headers) {
+        console.error(
+          `[IBM Watson Rate Limit] X-RateLimit-Remaining: ${error.headers["x-ratelimit-remaining"]}`
+        );
+        console.error(
+          `[IBM Watson Rate Limit] X-RateLimit-Limit: ${error.headers["x-ratelimit-limit"]}`
+        );
+        console.error(
+          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${error.headers["x-ratelimit-reset"]}`
+        );
+      }
       console.error(
         `Error fetching logs for assistant environment_id ${assistantId}`,
         error
