@@ -5,7 +5,7 @@ import { QueryParams } from "../interfaces/query.interface";
 
 export async function assistantRoute(fastify: FastifyInstance) {
   const assistantService = AssistantService.getInstance();
-  const assistantController = new AssistantController(assistantService);
+  const assistantController = AssistantController.getInstance(assistantService);
 
   // Rota para listar assistants
   fastify.get("/assistant", (request, reply) =>

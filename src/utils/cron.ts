@@ -1,13 +1,19 @@
+import { AssistantController } from "./../controllers/assistant.controller";
 import cron from "node-cron";
-import { AssistantService } from "../services/assistant.service";
 import { systemConfig } from "../config/system.config";
+import { AssistantService } from "../services/assistant.service";
+import { IAssistantService } from "../interfaces/assistant.interface";
+import { assistantRoute } from "../routes/assistant.route";
+import { all } from "axios";
 
 export class CronJobs {
   private static instance: CronJobs;
-  private assistantService: AssistantService;
+  private assistantController: AssistantController;
 
   private constructor() {
-    this.assistantService = AssistantService.getInstance();
+    const assistantService = AssistantService.getInstance();
+    this.assistantController =
+      AssistantController.getInstance(assistantService);
   }
 
   public static getInstance(): CronJobs {
@@ -18,18 +24,15 @@ export class CronJobs {
   }
 
   private async fetchLogsJob() {
-    const endDate = new Date();
-    const startDate = new Date(endDate.getTime() - 60 * 60 * 1000); // últimos 60 minutos
-
     try {
-      const logsMap = await this.assistantService.getAllAssistantsLogs(
-        startDate,
-        endDate
+      const allLogs = await this.assistantController.getAllLogsForCron();
+      console.log(allLogs);
+      console.log(
+        `[CRON] Coleta de logs realizada às ${new Date().toISOString()}`
       );
       console.log(
-        `[CRON] Logs coletados com sucesso às ${new Date().toISOString()}`
+        `[CRON] Total de assistants processados: ${allLogs.assistants.length}`
       );
-      console.log(`[CRON] Total de assistants processados: ${logsMap.size}`);
     } catch (error) {
       console.error("[CRON] Erro ao coletar logs:", error);
     }

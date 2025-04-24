@@ -81,6 +81,8 @@ export class AssistantService implements IAssistantService {
 
         // LOG DOS HEADERS DE RATE LIMIT
         const headers = currentResponse.headers;
+        const resetDate = new Date(Number(headers["x-ratelimit-reset"]) * 1000);
+
         console.log(
           `[IBM Watson Rate Limit] X-RateLimit-Remaining: ${headers["x-ratelimit-remaining"]}`
         );
@@ -88,7 +90,7 @@ export class AssistantService implements IAssistantService {
           `[IBM Watson Rate Limit] X-RateLimit-Limit: ${headers["x-ratelimit-limit"]}`
         );
         console.log(
-          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${headers["x-ratelimit-reset"]}`
+          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toUTCString()}`
         );
 
         allLogs.logs = [...allLogs.logs, ...currentResponse.result.logs];
@@ -103,18 +105,23 @@ export class AssistantService implements IAssistantService {
       } while (cursor !== null);
 
       allLogs.pagination = { next_url: null };
+
       return allLogs;
     } catch (error: any) {
       // Se o erro for 429, tente logar os headers também
       if (error.headers) {
+        const resetDate = new Date(
+          Number(error.headers["x-ratelimit-reset"]) * 1000
+        );
+
         console.error(
           `[IBM Watson Rate Limit] X-RateLimit-Remaining: ${error.headers["x-ratelimit-remaining"]}`
         );
         console.error(
           `[IBM Watson Rate Limit] X-RateLimit-Limit: ${error.headers["x-ratelimit-limit"]}`
         );
-        console.error(
-          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${error.headers["x-ratelimit-reset"]}`
+        console.log(
+          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toUTCString()}`
         );
       }
       console.error(
