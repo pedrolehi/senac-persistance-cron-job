@@ -2,9 +2,6 @@ import { AssistantController } from "./../controllers/assistant.controller";
 import cron from "node-cron";
 import { systemConfig } from "../config/system.config";
 import { AssistantService } from "../services/assistant.service";
-import { IAssistantService } from "../interfaces/assistant.interface";
-import { assistantRoute } from "../routes/assistant.route";
-import { all } from "axios";
 
 export class CronJobs {
   private static instance: CronJobs;
@@ -30,9 +27,8 @@ export class CronJobs {
       console.log(
         `[CRON] Coleta de logs realizada às ${new Date().toISOString()}`
       );
-      console.log(
-        `[CRON] Total de assistants processados: ${allLogs.assistants.length}`
-      );
+      const assistantCount = Object.keys(allLogs.assistants).length;
+      console.log(`[CRON] Total de assistants processados: ${assistantCount}`);
     } catch (error) {
       console.error("[CRON] Erro ao coletar logs:", error);
     }

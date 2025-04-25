@@ -2,7 +2,11 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import { IAssistantService } from "../interfaces/assistant.interface";
 import { QueryParams } from "../interfaces/query.interface";
 import { getTimeInterval } from "../utils/timeParser";
-
+import {
+  LogsResponse,
+  LogsResponseSchema,
+} from "../schemas/logs.response.schema";
+import { z } from "zod";
 export class AssistantController {
   private static instance: AssistantController;
 
@@ -67,11 +71,7 @@ export class AssistantController {
     }
   }
 
-  async getAllLogsForCron(): Promise<{
-    startDate: string;
-    endDate: string;
-    assistants: Record<string, any>;
-  }> {
+  async getAllLogsForCron(): Promise<LogsResponse> {
     try {
       const { startDate, endDate } = getTimeInterval();
 
@@ -88,14 +88,21 @@ export class AssistantController {
       // Converte o Map para um objeto para melhor serialização
       const logsObject = Object.fromEntries(allLogs);
 
-      return {
+      // Validação com Zod
+      const result = LogsResponseSchema.parse({
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
         assistants: logsObject,
-      };
+      });
+
+      return result;
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error("Validation error:", error.errors);
+        throw new Error("Invalid log data structure");
+      }
       console.error("Error fetching logs:", error);
-      throw error; // Re-throw para ser tratado no CronJobs
+      throw error;
     }
   }
 }

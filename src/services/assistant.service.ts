@@ -9,6 +9,7 @@ import {
 } from "../schemas/assistant.schema";
 import { LogCollection } from "../schemas/logs.schema";
 import { z } from "zod";
+import { systemConfig } from "../config/system.config";
 
 export class AssistantService implements IAssistantService {
   private static instance: AssistantService;
@@ -138,11 +139,17 @@ export class AssistantService implements IAssistantService {
   ): Promise<Map<string, LogCollection>> {
     const assistants = await this.listAssistants();
     const logsMap = new Map();
+    const { excludedAssistants } = systemConfig;
 
-    // console.log("Assistants:", assistants);
     for (const assistant of assistants.assistants) {
+      // Pula os assistants que estão na lista de exclusão
+      if (excludedAssistants.includes(assistant.name)) {
+        console.log(`Skipping excluded assistant: ${assistant.name}`);
+        continue;
+      }
+
       console.log("Fetching data from assistant:", assistant.name);
-      // Procura o environment "live"
+
       const liveEnv = assistant.assistant_environments.find(
         (env) => env.name === "live"
       );
@@ -153,6 +160,7 @@ export class AssistantService implements IAssistantService {
         );
         continue;
       }
+
       try {
         const logs = await this.getAssistantLogs(
           liveEnv.environment_id,
