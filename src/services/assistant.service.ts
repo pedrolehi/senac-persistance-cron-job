@@ -63,7 +63,7 @@ export class AssistantService implements IAssistantService {
     assistantId: string,
     startDate: Date,
     endDate: Date,
-    pageLimit: number = 100
+    pageLimit: number = systemConfig.filesPerPage
   ): Promise<LogCollection> {
     try {
       let allLogs: LogCollection = { logs: [], pagination: { next_url: null } };
