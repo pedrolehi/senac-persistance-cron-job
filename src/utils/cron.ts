@@ -34,8 +34,17 @@ export class CronJobs {
       console.log("Arquivo logs-cron.json exportado com sucesso!");
 
       console.log(
-        `[CRON] Coleta de logs realizada às ${new Date().toISOString()}`
+        `[CRON] Coleta de logs realizada às ${new Date().toLocaleString('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        })}`
       );
+      
       const assistantCount = Object.keys(allLogs.assistants).length;
       console.log(`[CRON] Total de assistants processados: ${assistantCount}`);
     } catch (error) {

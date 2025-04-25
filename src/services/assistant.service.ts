@@ -91,7 +91,15 @@ export class AssistantService implements IAssistantService {
           `[IBM Watson Rate Limit] X-RateLimit-Limit: ${headers["x-ratelimit-limit"]}`
         );
         console.log(
-          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toUTCString()}`
+          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toLocaleString('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          })}`
         );
 
         allLogs.logs = [...allLogs.logs, ...currentResponse.result.logs];
@@ -122,7 +130,15 @@ export class AssistantService implements IAssistantService {
           `[IBM Watson Rate Limit] X-RateLimit-Limit: ${error.headers["x-ratelimit-limit"]}`
         );
         console.log(
-          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toUTCString()}`
+          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toLocaleString('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          })}`
         );
       }
       console.error(
