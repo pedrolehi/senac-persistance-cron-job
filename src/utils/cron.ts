@@ -2,6 +2,7 @@ import { AssistantController } from "./../controllers/assistant.controller";
 import cron from "node-cron";
 import { systemConfig } from "../config/system.config";
 import { AssistantService } from "../services/assistant.service";
+import { promises as fs } from "fs";
 
 export class CronJobs {
   private static instance: CronJobs;
@@ -24,6 +25,14 @@ export class CronJobs {
     try {
       const allLogs = await this.assistantController.getAllLogsForCron();
       console.log(allLogs);
+
+      await fs.writeFile(
+        "logs-cron.json",
+        JSON.stringify(allLogs, null, 2), // formata com 2 espaços
+        "utf-8"
+      );
+      console.log("Arquivo logs-cron.json exportado com sucesso!");
+
       console.log(
         `[CRON] Coleta de logs realizada às ${new Date().toISOString()}`
       );
