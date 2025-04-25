@@ -1,4 +1,6 @@
+import { LogCollection } from './../schemas/logs.schema';
 import { FastifyReply, FastifyRequest } from "fastify";
+import { z } from "zod";
 import { IAssistantService } from "../interfaces/assistant.interface";
 import { QueryParams } from "../interfaces/query.interface";
 import { getTimeInterval } from "../utils/timeParser";
@@ -6,7 +8,8 @@ import {
   LogsResponse,
   LogsResponseSchema,
 } from "../schemas/logs.response.schema";
-import { z } from "zod";
+import { LogSanitizer } from "../utils/sanitizer";
+
 export class AssistantController {
   private static instance: AssistantController;
 
@@ -55,6 +58,10 @@ export class AssistantController {
         endDate
       );
 
+      for(const [assistantName, LogCollection] of allLogs.entries()) {
+        allLogs.set(assistantName, LogSanitizer.sanitizeLogs(LogCollection));
+      }
+
       // Converte o Map para um objeto para melhor serialização
       const logsObject = Object.fromEntries(allLogs);
 
@@ -84,6 +91,10 @@ export class AssistantController {
         startDate,
         endDate
       );
+
+      for (const [assistantName, logCollection] of allLogs.entries()) {
+        allLogs.set(assistantName, LogSanitizer.sanitizeLogs(logCollection));
+      }
 
       // Converte o Map para um objeto para melhor serialização
       const logsObject = Object.fromEntries(allLogs);
