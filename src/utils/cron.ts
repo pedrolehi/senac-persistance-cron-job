@@ -1,26 +1,26 @@
 // src/utils/cron.ts
 import { AssistantController } from "./../controllers/assistant.controller";
-import cron from "node-cron";
-import { systemConfig } from "../config/system.config";
 import { AssistantService } from "../services/assistant.service";
-import { promises as fs } from "fs";
-import { LogTransformer } from "./logTransformer";
 import { PersistanceService } from "../services/persistance.service";
-import readline from "readline";
+import { LogTransformer } from "./logTransformer";
+import { systemConfig } from "../config/system.config"; // Importando o tipo
 import { stdin as input, stdout as output } from "process";
+import { promises as fs } from "fs";
+import readline from "readline";
 import path from "path";
+import cron from "node-cron";
 
 export class CronJobs {
   private static instance: CronJobs;
   private assistantController: AssistantController;
-  private persistanceService: PersistanceService;
+  private PersistanceService: PersistanceService;
   private static hasStarted: boolean = false;
 
   private constructor() {
     const assistantService = AssistantService.getInstance();
     this.assistantController =
       AssistantController.getInstance(assistantService);
-    this.persistanceService = PersistanceService.getInstance();
+    this.PersistanceService = PersistanceService.getInstance();
   }
 
   public static getInstance(): CronJobs {
@@ -64,6 +64,7 @@ export class CronJobs {
     try {
       console.log("[CRON][SAVE] Iniciando salvamento dos logs...");
 
+      // Salva no arquivo com timestamp no nome
       const now = new Date().toISOString().split(".")[0].replace(/[:]/g, "-");
       const logsDir = path.join(process.cwd(), "logs");
 
@@ -75,7 +76,6 @@ export class CronJobs {
         standardized: standardizedLogs,
       };
 
-      // Salva arquivo
       await fs.writeFile(
         path.join(logsDir, `logs-${now}.json`),
         JSON.stringify(fullLogsData, null, 2),
@@ -85,17 +85,12 @@ export class CronJobs {
         `[CRON][SAVE] Arquivo logs-${now}.json exportado com sucesso!`
       );
 
-      // Define o tipo explicitamente
-      type SaveResult = {
-        success: boolean;
-        count: number;
-      };
+      // Salva no MongoDB
+      const saveResults = await this.PersistanceService.saveProcessedLogs(
+        standardizedLogs
+      );
 
-      // Salva no MongoDB e verifica resultado
-      const saveResults: Record<string, SaveResult> =
-        await this.persistanceService.saveProcessedLogs(standardizedLogs);
-
-      // Verifica se há resultados e se todos foram bem sucedidos
+      // Processa resultados do salvamento
       const results = Object.values(saveResults);
       const allSuccess =
         results.length > 0 && results.every((result) => result.success);
@@ -103,15 +98,26 @@ export class CronJobs {
         (total, result) => total + result.count,
         0
       );
+      const totalDuplicates = results.reduce(
+        (total, result) => total + (result.duplicates || 0),
+        0
+      );
 
       if (allSuccess) {
         console.log(
           `[CRON][SAVE] ${totalSaved} logs salvos com sucesso no MongoDB!`
         );
+        if (totalDuplicates > 0) {
+          console.log(
+            `[CRON][SAVE] ${totalDuplicates} logs ignorados por serem duplicados`
+          );
+        }
       } else {
         console.error("[CRON][SAVE] Alguns logs não foram salvos no MongoDB!");
         console.error("[CRON][SAVE] Detalhes:", saveResults);
       }
+
+      return { totalSaved, totalDuplicates };
     } catch (error) {
       console.error("[CRON][SAVE] Erro durante o salvamento:", error);
       throw error;
@@ -139,7 +145,7 @@ export class CronJobs {
       // Executa as etapas em sequência
       const rawLogs = await this.fetchRawLogs();
       const standardizedLogs = this.standardizeLogs(rawLogs);
-      await this.saveLogs(rawLogs, standardizedLogs);
+      const saveStats = await this.saveLogs(rawLogs, standardizedLogs);
 
       // Estatísticas finais
       const assistantCount = Object.keys(rawLogs.assistants).length;
@@ -155,6 +161,14 @@ export class CronJobs {
       console.log(
         `[CRON][STATS] Total de logs padronizados: ${totalStandardizedLogs}`
       );
+      console.log(
+        `[CRON][STATS] Total de logs salvos no MongoDB: ${saveStats.totalSaved}`
+      );
+      if (saveStats.totalDuplicates > 0) {
+        console.log(
+          `[CRON][STATS] Total de logs duplicados ignorados: ${saveStats.totalDuplicates}`
+        );
+      }
       console.log("[CRON][END] Processamento finalizado com sucesso!");
     } catch (error) {
       console.error("[CRON][ERROR] Erro durante o processamento:", error);

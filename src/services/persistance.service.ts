@@ -1,10 +1,6 @@
 import { LogRepository } from "../repositories/mongo.log.repository";
+import { SaveResult } from "../schemas/save-result.schema";
 import type { StandardizedLog } from "../schemas/standardized-log.schema";
-
-export type SaveResult = {
-  success: boolean;
-  count: number;
-};
 
 export class PersistanceService {
   private static instance: PersistanceService;

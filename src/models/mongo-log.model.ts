@@ -1,4 +1,5 @@
 import mongoose, { Schema } from "mongoose";
+import { IStandardizedLog } from "../interfaces/standardized-log.interface";
 
 const userSchema = new mongoose.Schema(
   {
@@ -9,38 +10,38 @@ const userSchema = new mongoose.Schema(
   { _id: false }
 );
 
-const standardizedLogSchemaMongo = new mongoose.Schema({
-  conversation_id: { type: String, required: true },
+const standardizedLogSchemaMongo = new Schema({
+  conversation_id: {
+    type: String,
+    required: true,
+  },
   user: userSchema,
   context: { type: Object },
   input: { type: String },
-  intents: [mongoose.Schema.Types.Mixed],
-  entities: [mongoose.Schema.Types.Mixed],
-  output: { type: Object, required: false, default: null },
-  timestamp: { type: Schema.Types.Mixed, required: true },
+  intents: [Schema.Types.Mixed],
+  entities: [Schema.Types.Mixed],
+  output: { type: Object, required: false },
+  timestamp: {
+    type: Schema.Types.Mixed,
+    required: true,
+  },
 });
 
-export interface IStandardizedLog {
-  conversation_id: string;
-  user: {
-    session_id: string;
-    chapa?: string;
-    emplid?: string;
-  };
-  context: Record<string, any>;
-  input: string;
-  intents: any[];
-  entities: any[];
-  output?: Record<string, any> | null;
-  timestamp: string | Date;
-}
+// Índice composto único para evitar duplicatas
+standardizedLogSchemaMongo.index(
+  { conversation_id: 1, timestamp: 1 },
+  { unique: true }
+);
 
 export function getAssistantModel(assistantName: string) {
-  const collectionName = assistantName.toLowerCase();
-
+  const collectionName = assistantName.toLowerCase(); // Ex: 'geduc'
   if (mongoose.models[collectionName]) {
     return mongoose.models[collectionName];
   }
-
-  return mongoose.model(collectionName, standardizedLogSchemaMongo);
+  // O terceiro argumento força o nome exato da collection
+  return mongoose.model(
+    collectionName,
+    standardizedLogSchemaMongo,
+    collectionName
+  );
 }
