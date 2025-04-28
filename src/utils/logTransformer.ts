@@ -41,9 +41,10 @@ export class LogTransformer {
         input: log.response?.input?.text || "",
         intents: log.response?.output?.intents || [],
         entities: log.response?.output?.entities || [],
-        timeStamp: this.formatTimestamp(log.request_timestamp),
+        output: log.response?.output || [],
+        timestamp: this.formatTimestamp(log.request_timestamp),
       };
-      console.log("valor do timestamp convertido", standardLog.timeStamp);
+      console.log("valor do timestamp convertido", standardLog.timestamp);
 
       return StandardizedLogSchema.parse(standardLog);
     } catch (error) {
