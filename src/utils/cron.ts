@@ -1,18 +1,26 @@
+// src/utils/cron.ts
 import { AssistantController } from "./../controllers/assistant.controller";
 import cron from "node-cron";
 import { systemConfig } from "../config/system.config";
 import { AssistantService } from "../services/assistant.service";
 import { promises as fs } from "fs";
 import { LogTransformer } from "./logTransformer";
+import { PersistanceService } from "../services/persistance.service";
+import readline from "readline";
+import { stdin as input, stdout as output } from "process";
+import path from "path";
 
 export class CronJobs {
   private static instance: CronJobs;
   private assistantController: AssistantController;
+  private persistanceService: PersistanceService;
+  private static hasStarted: boolean = false;
 
   private constructor() {
     const assistantService = AssistantService.getInstance();
     this.assistantController =
       AssistantController.getInstance(assistantService);
+    this.persistanceService = PersistanceService.getInstance();
   }
 
   public static getInstance(): CronJobs {
@@ -20,6 +28,17 @@ export class CronJobs {
       CronJobs.instance = new CronJobs();
     }
     return CronJobs.instance;
+  }
+
+  private async promptForStart(): Promise<boolean> {
+    const rl = readline.createInterface({ input, output });
+
+    return new Promise((resolve) => {
+      rl.question("Deseja iniciar o CronJob agora? (s/n): ", (answer) => {
+        rl.close();
+        resolve(answer.toLowerCase() === "s");
+      });
+    });
   }
 
   // 1. Buscar logs brutos
@@ -42,20 +61,61 @@ export class CronJobs {
 
   // 3. Salvar logs
   private async saveLogs(rawLogs: any, standardizedLogs: any) {
-    console.log("[CRON][SAVE] Iniciando salvamento dos logs...");
+    try {
+      console.log("[CRON][SAVE] Iniciando salvamento dos logs...");
 
-    const fullLogsData = {
-      timestamp: new Date().toISOString(),
-      raw: rawLogs,
-      standardized: standardizedLogs,
-    };
+      const now = new Date().toISOString().split(".")[0].replace(/[:]/g, "-");
+      const logsDir = path.join(process.cwd(), "logs");
 
-    await fs.writeFile(
-      "logs-cron.json",
-      JSON.stringify(fullLogsData, null, 2),
-      "utf-8"
-    );
-    console.log("[CRON][SAVE] Arquivo logs-cron.json exportado com sucesso!");
+      await fs.mkdir(logsDir, { recursive: true });
+
+      const fullLogsData = {
+        timestamp: new Date().toISOString(),
+        raw: rawLogs,
+        standardized: standardizedLogs,
+      };
+
+      // Salva arquivo
+      await fs.writeFile(
+        path.join(logsDir, `logs-${now}.json`),
+        JSON.stringify(fullLogsData, null, 2),
+        "utf-8"
+      );
+      console.log(
+        `[CRON][SAVE] Arquivo logs-${now}.json exportado com sucesso!`
+      );
+
+      // Define o tipo explicitamente
+      type SaveResult = {
+        success: boolean;
+        count: number;
+      };
+
+      // Salva no MongoDB e verifica resultado
+      const saveResults: Record<string, SaveResult> =
+        await this.persistanceService.saveProcessedLogs(standardizedLogs);
+
+      // Verifica se há resultados e se todos foram bem sucedidos
+      const results = Object.values(saveResults);
+      const allSuccess =
+        results.length > 0 && results.every((result) => result.success);
+      const totalSaved = results.reduce(
+        (total, result) => total + result.count,
+        0
+      );
+
+      if (allSuccess) {
+        console.log(
+          `[CRON][SAVE] ${totalSaved} logs salvos com sucesso no MongoDB!`
+        );
+      } else {
+        console.error("[CRON][SAVE] Alguns logs não foram salvos no MongoDB!");
+        console.error("[CRON][SAVE] Detalhes:", saveResults);
+      }
+    } catch (error) {
+      console.error("[CRON][SAVE] Erro durante o salvamento:", error);
+      throw error;
+    }
   }
 
   // 4. Método principal que executa o job
@@ -101,7 +161,18 @@ export class CronJobs {
     }
   }
 
-  public startJobs() {
+  public async startJobs() {
+    if (!CronJobs.hasStarted) {
+      const shouldStart = await this.promptForStart();
+      if (!shouldStart) {
+        console.log(
+          "[CRON][INIT] CronJob não iniciado por escolha do usuário."
+        );
+        return;
+      }
+      CronJobs.hasStarted = true;
+    }
+
     const cronInterval = systemConfig.cronInterval;
 
     cron.schedule(`*/${cronInterval} * * * *`, () => {
@@ -110,6 +181,6 @@ export class CronJobs {
     });
 
     console.log("[CRON][INIT] Executando coleta inicial...");
-    this.runJob();
+    await this.runJob();
   }
 }

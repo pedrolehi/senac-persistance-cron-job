@@ -15,8 +15,7 @@ async function start() {
 
     // Inicia os cron jobs
     const cronJobs = CronJobs.getInstance();
-    cronJobs.startJobs();
-    console.log("Cron jobs initialized");
+    await cronJobs.startJobs();
   } catch (err) {
     console.error(err);
     process.exit(1);

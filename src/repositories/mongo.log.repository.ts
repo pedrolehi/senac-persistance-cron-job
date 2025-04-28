@@ -1,4 +1,4 @@
-import { getAssistantModel } from "../models/standardized-log-mongo.model";
+import { getAssistantModel } from "../models/mongo-log.model";
 import type { StandardizedLog } from "../schemas/standardized-log.schema";
 
 export class LogRepository {
@@ -16,7 +16,7 @@ export class LogRepository {
   async saveMany(
     assistantName: string,
     logs: StandardizedLog[]
-  ): Promise<void> {
+  ): Promise<{ success: boolean; count: number }> {
     try {
       const collectionName = assistantName.toLowerCase();
       console.log(
@@ -24,11 +24,16 @@ export class LogRepository {
       );
 
       const AssistantModel = getAssistantModel(assistantName);
-      await AssistantModel.insertMany(logs);
+      const result = await AssistantModel.insertMany(logs);
 
+      const savedCount = Array.isArray(result) ? result.length : 0;
       console.log(
-        `[DB][REPOSITORY] Logs salvos com sucesso na collection ${collectionName}`
+        `[DB][REPOSITORY] ${savedCount} logs salvos com sucesso na collection ${collectionName}`
       );
+      return {
+        success: true,
+        count: savedCount,
+      };
     } catch (error) {
       console.error(
         `[DB][REPOSITORY] Erro ao salvar logs na collection ${assistantName.toLowerCase()}:`,

@@ -17,7 +17,6 @@ export class LogTransformer {
 
   private formatTimestamp(dateString: string): string {
     const date = new Date(dateString);
-    console.log(date);
     return date.toISOString().replace("Z", "+00:00");
   }
 
@@ -44,7 +43,6 @@ export class LogTransformer {
         output: log.response?.output || [],
         timestamp: this.formatTimestamp(log.request_timestamp),
       };
-      console.log("valor do timestamp convertido", standardLog.timestamp);
 
       return StandardizedLogSchema.parse(standardLog);
     } catch (error) {
