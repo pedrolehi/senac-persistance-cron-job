@@ -40,8 +40,14 @@ export class PersistanceService {
       }
 
       return results;
-    } catch (error) {
-      console.error("[DB][SERVICE] Erro ao salvar logs:", error);
+    } catch (error: any) {
+      console.error(
+        `[DB][SERVICE] Erro ao salvar logs: ${
+          error.code == "E11000"
+            ? "E11000 - Log não salvo devido a duplicidade no banco"
+            : error
+        }`
+      );
       return {};
     }
   }
