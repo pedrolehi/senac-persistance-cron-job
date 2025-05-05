@@ -15,9 +15,9 @@ export class LogTransformer {
     this.assistantName = assistantName;
   }
 
-  private formatTimestamp(dateString: string): string {
+  private formatTimestamp(dateString: string): Date {
     const date = new Date(dateString);
-    return date.toISOString().replace("Z", "+00:00");
+    return date;
   }
 
   private extractUserInfo(log: Log) {
@@ -34,7 +34,11 @@ export class LogTransformer {
   private transformSingleLog(log: Log): StandardizedLog {
     try {
       const standardLog = {
-        conversation_id: log.response?.context?.conversation_id || "",
+        log_id: log.log_id || "",
+        conversation_id:
+          log.response?.context?.metadata?.user_id ||
+          log.response?.context?.global?.user_id ||
+          "",
         user: this.extractUserInfo(log),
         context: log.response?.context || {},
         input: log.response?.input?.text || "",
@@ -90,22 +94,5 @@ export class LogTransformer {
       console.error("Erro na validação do payload inicial:", error);
       throw error;
     }
-  }
-
-  // Método para debug do timestamp
-  public debugTimestamp(dateString: string): void {
-    console.log("Timestamp Debug:", {
-      original: dateString,
-      converted: this.formatTimestamp(dateString),
-    });
-  }
-
-  // Método para debug dos dados do usuário
-  public debugUserInfo(log: Log): void {
-    console.log("User Info Debug:", {
-      extractedInfo: this.extractUserInfo(log),
-      originalUserDefined:
-        log.response?.context?.skills?.["main skill"]?.user_defined,
-    });
   }
 }

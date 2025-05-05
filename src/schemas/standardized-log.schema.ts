@@ -8,6 +8,7 @@ const UserSchema = z.object({
 });
 
 export const StandardizedLogSchema = z.object({
+  log_id: z.string(),
   conversation_id: z.string(),
   user: UserSchema,
   context: z.object({}).passthrough(),
@@ -15,7 +16,7 @@ export const StandardizedLogSchema = z.object({
   intents: z.array(z.any()),
   entities: z.array(z.any()),
   output: z.object({}).passthrough().nullable().optional(),
-  timestamp: z.string().or(z.date()),
+  timestamp: z.date(),
 });
 
 export type StandardizedLog = z.infer<typeof StandardizedLogSchema>;

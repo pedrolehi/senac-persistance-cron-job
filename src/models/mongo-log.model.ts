@@ -1,5 +1,4 @@
 import mongoose, { Schema } from "mongoose";
-import { IStandardizedLog } from "../interfaces/standardized-log.interface";
 
 const userSchema = new mongoose.Schema(
   {
@@ -22,7 +21,7 @@ const standardizedLogSchemaMongo = new Schema({
   entities: [Schema.Types.Mixed],
   output: { type: Object, required: false },
   timestamp: {
-    type: Schema.Types.Mixed,
+    type: Date,
     required: true,
   },
 });
