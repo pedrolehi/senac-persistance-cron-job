@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
 );
 
 const standardizedLogSchemaMongo = new Schema({
+  log_id: { type: String, required: true, unique: true },
   conversation_id: {
     type: String,
     required: true,

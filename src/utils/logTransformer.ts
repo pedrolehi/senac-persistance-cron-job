@@ -37,7 +37,7 @@ export class LogTransformer {
         log_id: log.log_id || "",
         conversation_id:
           log.response?.context?.metadata?.user_id ||
-          log.response?.context?.global?.user_id ||
+          log.response?.context?.global?.system?.user_id ||
           "",
         user: this.extractUserInfo(log),
         context: log.response?.context || {},
