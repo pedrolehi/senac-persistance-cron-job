@@ -68,7 +68,8 @@ export class LogTransformer {
           return null;
         }
       })
-      .filter((log): log is StandardizedLog => log !== null);
+      .filter((log): log is StandardizedLog => log !== null)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 
   public static processAllAssistants(
