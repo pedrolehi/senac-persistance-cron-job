@@ -86,13 +86,4 @@ export class LogTransformer {
     );
     return processedLogs;
   }
-
-  public static validadeInitialPayload(payload: unknown): LogsResponse {
-    try {
-      return LogsResponseSchema.parse(payload);
-    } catch (error) {
-      console.error("Erro na validação do payload inicial:", error);
-      throw error;
-    }
-  }
 }

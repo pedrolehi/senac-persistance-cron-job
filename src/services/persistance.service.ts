@@ -17,38 +17,51 @@ export class PersistanceService {
     return PersistanceService.instance;
   }
 
+  private logSaveResults(assistantName: string, result: SaveResult): void {
+    console.log(`[DB][SERVICE] Results for ${assistantName}:`);
+    console.log(`- Successfully saved: ${result.count} logs`);
+    if (result.duplicates > 0) {
+      console.log(`- Duplicates found and ignored: ${result.duplicates} logs`);
+    }
+    if (result.error) {
+      console.error(`- Error occurred: ${result.error}`);
+    }
+  }
+
   async saveProcessedLogs(
     standardizedLogsByAssistant: Record<string, StandardizedLog[]>
   ): Promise<Record<string, SaveResult>> {
-    try {
-      console.log("[DB][SERVICE] Iniciando salvamento dos logs processados");
+    console.log("[DB][SERVICE] Starting log persistence process");
 
-      const results: Record<string, SaveResult> = {};
+    const results: Record<string, SaveResult> = {};
 
-      for (const [assistantName, logs] of Object.entries(
-        standardizedLogsByAssistant
-      )) {
-        if (logs.length > 0) {
-          console.log(
-            `[DB][SERVICE] Processando ${logs.length} logs do assistante ${assistantName}`
-          );
-          results[assistantName] = await this.logRepository.saveMany(
-            assistantName,
-            logs
-          );
-        }
+    for (const [assistantName, logs] of Object.entries(standardizedLogsByAssistant)) {
+      if (!logs?.length) {
+        console.log(`[DB][SERVICE] No logs to process for ${assistantName}`);
+        results[assistantName] = {
+          success: true,
+          count: 0,
+          duplicates: 0
+        };
+        continue;
       }
 
-      return results;
-    } catch (error: any) {
-      console.error(
-        `[DB][SERVICE] Erro ao salvar logs: ${
-          error.code == "E11000"
-            ? "E11000 - Log não salvo devido a duplicidade no banco"
-            : error
-        }`
-      );
-      return {};
+      console.log(`[DB][SERVICE] Processing ${logs.length} logs for assistant ${assistantName}`);
+
+      try {
+        results[assistantName] = await this.logRepository.saveMany(assistantName, logs);
+        this.logSaveResults(assistantName, results[assistantName]);
+      } catch (error) {
+        console.error(`[DB][SERVICE] Failed to save logs for ${assistantName}:`, error);
+        results[assistantName] = {
+          success: false,
+          count: 0,
+          duplicates: 0,
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
     }
+
+    return results;
   }
 }

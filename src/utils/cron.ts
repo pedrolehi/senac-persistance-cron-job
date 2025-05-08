@@ -9,13 +9,14 @@ import { promises as fs } from "fs";
 import readline from "readline";
 import path from "path";
 import cron from "node-cron";
-import { Log } from "../schemas/logs.schema";
+import { LogsResponse } from "../schemas/logs.response.schema";
 
 export class CronJobs {
   private static instance: CronJobs;
   private assistantController: AssistantController;
   private PersistanceService: PersistanceService;
   private static hasStarted: boolean = false;
+  private cronExpression: string = "";
 
   private constructor() {
     const assistantService = AssistantService.getInstance();
@@ -51,11 +52,9 @@ export class CronJobs {
   }
 
   // 2. Padronizar logs
-  private standardizeLogs(rawLogs: Log[]) {
+  private standardizeLogs(rawLogs: LogsResponse) {
     console.log("[CRON][STANDARDIZE] Iniciando padronização dos logs...");
-    const validatedPayload = LogTransformer.validadeInitialPayload(rawLogs);
-    const standardizedLogs =
-      LogTransformer.processAllAssistants(validatedPayload);
+    const standardizedLogs = LogTransformer.processAllAssistants(rawLogs);
     console.log("[CRON][STANDARDIZE] Logs padronizados com sucesso!");
     return standardizedLogs;
   }
@@ -126,6 +125,32 @@ export class CronJobs {
   }
 
   // 4. Método principal que executa o job
+  private logNextExecution() {
+    try {
+      const cronInterval = parseInt(this.cronExpression.split("/")[1]);
+      const nextRun = new Date();
+
+      const currentMinute = nextRun.getMinutes();
+      const minutesToAdd = cronInterval - (currentMinute % cronInterval);
+      nextRun.setMinutes(currentMinute + minutesToAdd);
+      nextRun.setSeconds(0);
+
+      const formattedNextRun = nextRun.toLocaleString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+
+      console.log(`[CRON][NEXT] Próxima execução será em: ${formattedNextRun}`);
+    } catch (error) {
+      console.error("[CRON][NEXT] Erro ao calcular próxima execução:", error);
+    }
+  }
+
   private async runJob() {
     try {
       console.log(
@@ -145,6 +170,7 @@ export class CronJobs {
 
       // Executa as etapas em sequência
       const rawLogs = await this.fetchRawLogs();
+      console.log(rawLogs);
       const standardizedLogs = this.standardizeLogs(rawLogs);
       const saveStats = await this.saveLogs(rawLogs, standardizedLogs);
 
@@ -171,8 +197,10 @@ export class CronJobs {
         );
       }
       console.log("[CRON][END] Processamento finalizado com sucesso!");
+      this.logNextExecution();
     } catch (error) {
       console.error("[CRON][ERROR] Erro durante o processamento:", error);
+      this.logNextExecution();
     }
   }
 
@@ -190,6 +218,7 @@ export class CronJobs {
 
     const cronInterval = systemConfig.cronInterval;
 
+    this.cronExpression = `*/${cronInterval} * * * *`;
     cron.schedule(`*/${cronInterval} * * * *`, () => {
       console.log("[CRON][SCHEDULE] Iniciando job agendado...");
       this.runJob();
