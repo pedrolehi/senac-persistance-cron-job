@@ -1,14 +1,13 @@
-// src/utils/cron.ts
 import { AssistantController } from "./../controllers/assistant.controller";
 import { AssistantService } from "../services/assistant.service";
 import { PersistanceService } from "../services/persistance.service";
 import { LogTransformer } from "./logTransformer";
-import { systemConfig } from "../config/system.config"; // Importando o tipo
+import { systemConfig } from "../config/system.config";
 import { stdin as input, stdout as output } from "process";
 import { promises as fs } from "fs";
 import readline from "readline";
 import path from "path";
-import cron from "node-cron";
+import { CronJob } from "cron";
 import { LogsResponse } from "../schemas/logs.response.schema";
 
 export class CronJobs {
@@ -16,7 +15,6 @@ export class CronJobs {
   private assistantController: AssistantController;
   private PersistanceService: PersistanceService;
   private static hasStarted: boolean = false;
-  private cronExpression: string = "";
 
   private constructor() {
     const assistantService = AssistantService.getInstance();
@@ -43,7 +41,6 @@ export class CronJobs {
     });
   }
 
-  // 1. Buscar logs brutos
   private async fetchRawLogs() {
     console.log("[CRON][FETCH] Iniciando coleta de logs brutos...");
     const rawLogs = await this.assistantController.getAllLogsForCron();
@@ -51,7 +48,6 @@ export class CronJobs {
     return rawLogs;
   }
 
-  // 2. Padronizar logs
   private standardizeLogs(rawLogs: LogsResponse) {
     console.log("[CRON][STANDARDIZE] Iniciando padronização dos logs...");
     const standardizedLogs = LogTransformer.processAllAssistants(rawLogs);
@@ -59,12 +55,10 @@ export class CronJobs {
     return standardizedLogs;
   }
 
-  // 3. Salvar logs
-  private async saveLogs(rawLogs: any, standardizedLogs: any) {
+  private async saveLogs(rawLogs: LogsResponse, standardizedLogs: any) {
     try {
       console.log("[CRON][SAVE] Iniciando salvamento dos logs...");
 
-      // Salva no arquivo com timestamp no nome
       const now = new Date().toISOString().split(".")[0].replace(/[:]/g, "-");
       const logsDir = path.join(process.cwd(), "logs");
 
@@ -85,12 +79,10 @@ export class CronJobs {
         `[CRON][SAVE] Arquivo logs-${now}.json exportado com sucesso!`
       );
 
-      // Salva no MongoDB
       const saveResults = await this.PersistanceService.saveProcessedLogs(
         standardizedLogs
       );
 
-      // Processa resultados do salvamento
       const results = Object.values(saveResults);
       const allSuccess =
         results.length > 0 && results.every((result) => result.success);
@@ -124,15 +116,10 @@ export class CronJobs {
     }
   }
 
-  // 4. Método principal que executa o job
   private logNextExecution() {
     try {
-      const cronInterval = parseInt(this.cronExpression.split("/")[1]);
       const nextRun = new Date();
-
-      const currentMinute = nextRun.getMinutes();
-      const minutesToAdd = cronInterval - (currentMinute % cronInterval);
-      nextRun.setMinutes(currentMinute + minutesToAdd);
+      nextRun.setMinutes(nextRun.getMinutes() + systemConfig.cronInterval);
       nextRun.setSeconds(0);
 
       const formattedNextRun = nextRun.toLocaleString("pt-BR", {
@@ -168,13 +155,10 @@ export class CronJobs {
         )}`
       );
 
-      // Executa as etapas em sequência
       const rawLogs = await this.fetchRawLogs();
-      console.log(rawLogs);
       const standardizedLogs = this.standardizeLogs(rawLogs);
       const saveStats = await this.saveLogs(rawLogs, standardizedLogs);
 
-      // Estatísticas finais
       const assistantCount = Object.keys(rawLogs.assistants).length;
       const totalStandardizedLogs = Object.values(standardizedLogs).reduce(
         (total, logs) => total + logs.length,
@@ -191,11 +175,13 @@ export class CronJobs {
       console.log(
         `[CRON][STATS] Total de logs salvos no MongoDB: ${saveStats.totalSaved}`
       );
+
       if (saveStats.totalDuplicates > 0) {
         console.log(
           `[CRON][STATS] Total de logs duplicados ignorados: ${saveStats.totalDuplicates}`
         );
       }
+
       console.log("[CRON][END] Processamento finalizado com sucesso!");
       this.logNextExecution();
     } catch (error) {
@@ -218,13 +204,20 @@ export class CronJobs {
 
     const cronInterval = systemConfig.cronInterval;
 
-    this.cronExpression = `*/${cronInterval} * * * *`;
-    cron.schedule(`*/${cronInterval} * * * *`, () => {
-      console.log("[CRON][SCHEDULE] Iniciando job agendado...");
-      this.runJob();
-    });
+    const job = new CronJob(
+      `*/${cronInterval} * * * *`,
+      () => {
+        console.log("[CRON][SCHEDULE] Iniciando job agendado...");
+        this.runJob();
+      },
+      null,
+      true,
+      "America/Sao_Paulo",
+      this,
+      true // runOnInit: true - executa imediatamente ao iniciar
+    );
 
-    console.log("[CRON][INIT] Executando coleta inicial...");
-    await this.runJob();
+    job.start();
+    console.log("[CRON][INIT] Job iniciado com execução imediata");
   }
 }

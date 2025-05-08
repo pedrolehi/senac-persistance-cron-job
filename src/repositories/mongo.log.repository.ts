@@ -53,9 +53,7 @@ export class LogRepository {
     } catch (error: any) {
       // Logue o erro completo, inclusive stack trace
       console.error(
-        `[DB][REPOSITORY] Erro ao salvar logs na collection ${collectionName}:`,
-        error,
-        error?.stack
+        `[DB][REPOSITORY] Erro ao salvar logs na collection ${collectionName}:`
       );
       // Se for erro de duplicata, pode tratar aqui se quiser
       if (error.code === 11000) {

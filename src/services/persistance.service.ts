@@ -35,29 +35,39 @@ export class PersistanceService {
 
     const results: Record<string, SaveResult> = {};
 
-    for (const [assistantName, logs] of Object.entries(standardizedLogsByAssistant)) {
+    for (const [assistantName, logs] of Object.entries(
+      standardizedLogsByAssistant
+    )) {
       if (!logs?.length) {
         console.log(`[DB][SERVICE] No logs to process for ${assistantName}`);
         results[assistantName] = {
           success: true,
           count: 0,
-          duplicates: 0
+          duplicates: 0,
         };
         continue;
       }
 
-      console.log(`[DB][SERVICE] Processing ${logs.length} logs for assistant ${assistantName}`);
+      console.log(
+        `[DB][SERVICE] Processing ${logs.length} logs for assistant ${assistantName}`
+      );
 
       try {
-        results[assistantName] = await this.logRepository.saveMany(assistantName, logs);
+        results[assistantName] = await this.logRepository.saveMany(
+          assistantName,
+          logs
+        );
         this.logSaveResults(assistantName, results[assistantName]);
-      } catch (error) {
-        console.error(`[DB][SERVICE] Failed to save logs for ${assistantName}:`, error);
+      } catch (error: any) {
+        console.error(
+          `[DB][SERVICE] Failed to save logs for ${assistantName}:`,
+          error.code
+        );
         results[assistantName] = {
           success: false,
           count: 0,
           duplicates: 0,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         };
       }
     }

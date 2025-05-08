@@ -1,6 +1,6 @@
 export const systemConfig = {
-  timePeriod: 60, // Ex: timePeriod: 60 (in minutes)
-  cronInterval: 50, //Ex: cronInterval: 50 (in minutes)
+  timePeriod: 70, // Ex: timePeriod: 60 (in minutes)
+  cronInterval: 60, //Ex: cronInterval: 50 (in minutes)
   filesPerPage: 200, // Ex: filesPerPage: 200
   excludedAssistants: [
     "HUB",
