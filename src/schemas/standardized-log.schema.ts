@@ -15,7 +15,7 @@ export const StandardizedLogSchema = z.object({
   input: z.string(),
   intents: z.array(z.any()),
   entities: z.array(z.any()),
-  output: z.object({}).passthrough().nullable().optional(),
+  output: z.array(z.any()).nullable().optional(),
   timestamp: z.date(),
 });
 

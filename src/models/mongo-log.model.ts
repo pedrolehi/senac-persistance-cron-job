@@ -20,7 +20,7 @@ const standardizedLogSchemaMongo = new Schema({
   input: { type: String },
   intents: [Schema.Types.Mixed],
   entities: [Schema.Types.Mixed],
-  output: { type: Object, required: false },
+  output: { type: Array, required: false },
   timestamp: {
     type: Date,
     required: true,

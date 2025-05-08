@@ -44,7 +44,7 @@ export class LogTransformer {
         input: log.response?.input?.text || "",
         intents: log.response?.output?.intents || [],
         entities: log.response?.output?.entities || [],
-        output: log.response?.output || [],
+        output: log.response?.output?.generic || [],
         timestamp: this.formatTimestamp(log.request_timestamp),
       };
 

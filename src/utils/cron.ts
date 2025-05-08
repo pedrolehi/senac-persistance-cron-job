@@ -9,6 +9,7 @@ import { promises as fs } from "fs";
 import readline from "readline";
 import path from "path";
 import cron from "node-cron";
+import { Log } from "../schemas/logs.schema";
 
 export class CronJobs {
   private static instance: CronJobs;
@@ -50,7 +51,7 @@ export class CronJobs {
   }
 
   // 2. Padronizar logs
-  private standardizeLogs(rawLogs: any) {
+  private standardizeLogs(rawLogs: Log[]) {
     console.log("[CRON][STANDARDIZE] Iniciando padronização dos logs...");
     const validatedPayload = LogTransformer.validadeInitialPayload(rawLogs);
     const standardizedLogs =
