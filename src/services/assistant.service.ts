@@ -1,7 +1,10 @@
-// src/services/assistant.service.ts
+/**
+ * @file assistant.service.ts
+ * @description Serviço para interação com a API do Watson Assistant
+ */
+
 import AssistantV2 from "ibm-watson/assistant/v2";
 import { IamAuthenticator } from "ibm-watson/auth";
-import { IAssistantService } from "../interfaces/assistant.interface";
 import { watsonConfig } from "../config/watson.config";
 import {
   AssistantResponse,
@@ -11,7 +14,7 @@ import { LogCollection } from "../schemas/logs.schema";
 import { z } from "zod";
 import { systemConfig } from "../config/system.config";
 
-export class AssistantService implements IAssistantService {
+export class AssistantService {
   private static instance: AssistantService;
   private assistant: AssistantV2;
 
@@ -91,15 +94,18 @@ export class AssistantService implements IAssistantService {
           `[IBM Watson Rate Limit] X-RateLimit-Limit: ${headers["x-ratelimit-limit"]}`
         );
         console.log(
-          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toLocaleString('pt-BR', {
-            timeZone: 'America/Sao_Paulo',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          })}`
+          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toLocaleString(
+            "pt-BR",
+            {
+              timeZone: "America/Sao_Paulo",
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            }
+          )}`
         );
 
         allLogs.logs = [...allLogs.logs, ...currentResponse.result.logs];
@@ -130,15 +136,18 @@ export class AssistantService implements IAssistantService {
           `[IBM Watson Rate Limit] X-RateLimit-Limit: ${error.headers["x-ratelimit-limit"]}`
         );
         console.log(
-          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toLocaleString('pt-BR', {
-            timeZone: 'America/Sao_Paulo',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          })}`
+          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toLocaleString(
+            "pt-BR",
+            {
+              timeZone: "America/Sao_Paulo",
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            }
+          )}`
         );
       }
       console.error(
