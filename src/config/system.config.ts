@@ -1,6 +1,16 @@
 export const systemConfig = {
   timePeriod: 70, // Ex: timePeriod: 60 (in minutes)
-  cronInterval: 60, //Ex: cronInterval: 50 (in minutes)
+  cronExpression: `0 * * * *`, //cron pattern que define a frequencia com que a tarefa é realizada.
+  // sendo o schema:
+  //  *    *    *    *    *    *
+  // ┬    ┬    ┬    ┬    ┬    ┬
+  // │    │    │    │    │    │
+  // │    │    │    │    │    └─ day of week (0-7, 1L-7L) (0 or 7 is Sun)
+  // │    │    │    │    └────── month (1-12, JAN-DEC)
+  // │    │    │    └─────────── day of month (1-31, L)
+  // │    │    └──────────────── hour (0-23)
+  // │    └───────────────────── minute (0-59)
+  // └────────────────────────── second (0-59, optional)
   filesPerPage: 200, // Ex: filesPerPage: 200
   excludedAssistants: [
     "HUB",

@@ -9,6 +9,7 @@ import readline from "readline";
 import path from "path";
 import { CronJob } from "cron";
 import { LogsResponse } from "../schemas/logs.response.schema";
+import { CronExpressionParser } from "cron-parser";
 
 export class CronJobs {
   private static instance: CronJobs;
@@ -118,9 +119,13 @@ export class CronJobs {
 
   private logNextExecution() {
     try {
-      const nextRun = new Date();
-      nextRun.setMinutes(nextRun.getMinutes() + systemConfig.cronInterval);
-      nextRun.setSeconds(0);
+      const cronExpression = systemConfig.cronExpression; // '0 * * * *'
+      const interval = CronExpressionParser.parse(cronExpression, {
+        currentDate: new Date(),
+        tz: "America/Sao_Paulo",
+      });
+
+      const nextRun = interval.next().toDate();
 
       const formattedNextRun = nextRun.toLocaleString("pt-BR", {
         timeZone: "America/Sao_Paulo",
@@ -202,10 +207,10 @@ export class CronJobs {
       CronJobs.hasStarted = true;
     }
 
-    const cronInterval = systemConfig.cronInterval;
+    const cronExpression = systemConfig.cronExpression;
 
     const job = new CronJob(
-      `*/${cronInterval} * * * *`,
+      `${cronExpression}`,
       () => {
         console.log("[CRON][SCHEDULE] Iniciando job agendado...");
         this.runJob();
