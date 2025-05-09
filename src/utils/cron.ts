@@ -3,13 +3,13 @@ import { AssistantService } from "../services/assistant.service";
 import { PersistanceService } from "../services/persistance.service";
 import { LogTransformer } from "./logTransformer";
 import { systemConfig } from "../config/system.config";
+import { LogsResponse } from "../schemas/logs.response.schema";
 import { stdin as input, stdout as output } from "process";
 import { promises as fs } from "fs";
 import readline from "readline";
 import path from "path";
 import { CronJob } from "cron";
-import { LogsResponse } from "../schemas/logs.response.schema";
-import { CronExpressionParser } from "cron-parser";
+import CronExpressionParser from "cron-parser";
 
 export class CronJobs {
   private static instance: CronJobs;
@@ -60,6 +60,16 @@ export class CronJobs {
     try {
       console.log("[CRON][SAVE] Iniciando salvamento dos logs...");
 
+      const saveResults = await this.PersistanceService.saveProcessedLogs(
+        standardizedLogs
+      );
+
+      // Agrupar todos os logs que foram realmente salvos
+      const savedLogsOnly: any = {};
+      for (const [assistantName, result] of Object.entries(saveResults)) {
+        savedLogsOnly[assistantName] = result.savedLogs || [];
+      }
+
       const now = new Date().toISOString().split(".")[0].replace(/[:]/g, "-");
       const logsDir = path.join(process.cwd(), "logs");
 
@@ -68,7 +78,7 @@ export class CronJobs {
       const fullLogsData = {
         timestamp: new Date().toISOString(),
         raw: rawLogs,
-        standardized: standardizedLogs,
+        standardized: savedLogsOnly,
       };
 
       await fs.writeFile(
@@ -78,10 +88,6 @@ export class CronJobs {
       );
       console.log(
         `[CRON][SAVE] Arquivo logs-${now}.json exportado com sucesso!`
-      );
-
-      const saveResults = await this.PersistanceService.saveProcessedLogs(
-        standardizedLogs
       );
 
       const results = Object.values(saveResults);

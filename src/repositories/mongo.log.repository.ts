@@ -27,14 +27,25 @@ export class LogRepository {
 
       const AssistantModel = getAssistantModel(collectionName);
 
-      // O Mongoose retorna um array de documentos inseridos
-      const result = await AssistantModel.insertMany(logs, {
+      // Prepara as operações de bulk write
+      const bulkOps = logs.map((log) => ({
+        updateOne: {
+          filter: { log_id: log.log_id },
+          update: { $set: log },
+          upsert: true,
+        },
+      }));
+
+      // Executa todas as operações em uma única chamada
+      const result: any = await AssistantModel.bulkWrite(bulkOps, {
         ordered: false,
       });
-      // console.log(`[DB][REPOSITORY] Resultado do insertMany:`, result);
 
-      const savedCount = Array.isArray(result) ? result.length : 0;
+      const savedCount = result.upsertedCount;
       const duplicatesCount = logs.length - savedCount;
+
+      const savedLogs =
+        result.upserted?.map((entry: any) => logs[entry.index]) || [];
 
       console.log(
         `[DB][REPOSITORY] ${savedCount} logs salvos com sucesso na collection ${collectionName}`
@@ -49,17 +60,16 @@ export class LogRepository {
         success: true,
         count: savedCount,
         duplicates: duplicatesCount,
+        savedLogs: savedLogs,
       };
     } catch (error: any) {
-      // Logue o erro completo, inclusive stack trace
       console.error(
         `[DB][REPOSITORY] Erro ao salvar logs na collection ${collectionName}:`
       );
-      // Se for erro de duplicata, pode tratar aqui se quiser
       if (error.code === 11000) {
         console.warn(`[DB][REPOSITORY] Erro de duplicidade detectado.`);
       }
-      throw error; // Lance o erro para cima para não engolir!
+      throw error;
     }
   }
 }

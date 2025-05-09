@@ -1,4 +1,5 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Model } from "mongoose";
+import type { StandardizedLog } from "../schemas/standardized-log.schema";
 
 const userSchema = new mongoose.Schema(
   {
@@ -28,18 +29,21 @@ const standardizedLogSchemaMongo = new Schema({
 });
 
 // Índice composto único para evitar duplicatas
-standardizedLogSchemaMongo.index(
-  { conversation_id: 1, timestamp: 1 },
-  { unique: true }
-);
+// standardizedLogSchemaMongo.index(
+//   { conversation_id: 1, timestamp: 1 },
+//   { unique: true }
+// );
 
-export function getAssistantModel(assistantName: string) {
-  const collectionName = assistantName.toLowerCase(); // Ex: 'geduc'
+export function getAssistantModel(
+  assistantName: string
+): Model<StandardizedLog> {
+  const collectionName = assistantName.toLowerCase();
+
   if (mongoose.models[collectionName]) {
-    return mongoose.models[collectionName];
+    return mongoose.models[collectionName] as Model<StandardizedLog>;
   }
-  // O terceiro argumento força o nome exato da collection
-  return mongoose.model(
+
+  return mongoose.model<StandardizedLog>(
     collectionName,
     standardizedLogSchemaMongo,
     collectionName

@@ -1,4 +1,4 @@
-import { LogCollection } from './../schemas/logs.schema';
+import { LogCollection } from "./../schemas/logs.schema";
 import { FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { IAssistantService } from "../interfaces/assistant.interface";
@@ -44,7 +44,7 @@ export class AssistantController {
   ): Promise<FastifyReply> {
     try {
       const { startDate, endDate } = getTimeInterval();
-
+      console.log("Fetching all logs between", startDate, "and", endDate);
       // Valida as datas
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         return reply.status(400).send({
@@ -58,7 +58,7 @@ export class AssistantController {
         endDate
       );
 
-      for(const [assistantName, LogCollection] of allLogs.entries()) {
+      for (const [assistantName, LogCollection] of allLogs.entries()) {
         allLogs.set(assistantName, LogSanitizer.sanitizeLogs(LogCollection));
       }
 
@@ -81,7 +81,8 @@ export class AssistantController {
   async getAllLogsForCron(): Promise<LogsResponse> {
     try {
       const { startDate, endDate } = getTimeInterval();
-
+      console.log("Fetching all logs between", startDate, "and", endDate);
+      
       // Valida as datas
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
         throw new Error("Invalid date format in time interval calculation");
