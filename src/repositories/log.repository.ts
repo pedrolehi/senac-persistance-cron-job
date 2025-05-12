@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
-import { getAssistantModel } from "../models/log.model";
+import { getLogModel } from "../models/log.model";
 import { SaveResult } from "../schemas/save-result.schema";
 import type { StandardizedLog } from "../schemas/standardized-log.schema";
+import type { LogsResponse } from "../schemas/logs.response.schema";
 
 export class LogRepository {
   private static instance: LogRepository;
@@ -22,10 +23,18 @@ export class LogRepository {
     const collectionName = assistantName.toLowerCase();
     try {
       console.log(
+        `[DB][REPOSITORY] Nome do assistente recebido: ${assistantName}`
+      );
+      console.log(`[DB][REPOSITORY] Nome da collection: ${collectionName}`);
+      console.log(
         `[DB][REPOSITORY] Usando banco: ${mongoose.connection.name}, collection: ${collectionName}`
       );
+      console.log(`[DB][REPOSITORY] Tentando salvar ${logs.length} logs`);
 
-      const AssistantModel = getAssistantModel(collectionName);
+      const AssistantModel = getLogModel(assistantName);
+      console.log(
+        `[DB][REPOSITORY] Modelo obtido para collection ${collectionName}`
+      );
 
       // Prepara as operações de bulk write
       const bulkOps = logs.map((log) => ({
@@ -35,6 +44,10 @@ export class LogRepository {
           upsert: true,
         },
       }));
+
+      console.log(
+        `[DB][REPOSITORY] Operações de bulk write preparadas: ${bulkOps.length}`
+      );
 
       // Executa todas as operações em uma única chamada
       const result: any = await AssistantModel.bulkWrite(bulkOps, {
@@ -64,11 +77,56 @@ export class LogRepository {
       };
     } catch (error: any) {
       console.error(
-        `[DB][REPOSITORY] Erro ao salvar logs na collection ${collectionName}:`
+        `[DB][REPOSITORY] Erro ao salvar logs na collection ${collectionName}:`,
+        error
       );
+      console.error(`[DB][REPOSITORY] Detalhes do erro:`, {
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
       if (error.code === 11000) {
         console.warn(`[DB][REPOSITORY] Erro de duplicidade detectado.`);
       }
+      throw error;
+    }
+  }
+
+  async findLogIdsInBatch(
+    logsResponse: LogsResponse
+  ): Promise<Record<string, string[]>> {
+    try {
+      const results: Record<string, string[]> = {};
+
+      // Para cada assistente, busca seus logs no MongoDB
+      for (const [assistantName, assistantData] of Object.entries(
+        logsResponse.assistants
+      )) {
+        const logIds = assistantData.logs.map((log) => log.log_id);
+
+        if (logIds.length === 0) continue;
+
+        const AssistantModel = getLogModel(assistantName);
+        const result = await AssistantModel.aggregate([
+          {
+            $match: {
+              log_id: { $in: logIds },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              log_id: 1,
+            },
+          },
+        ]);
+
+        results[assistantName] = result.map((doc: any) => doc.log_id);
+      }
+
+      return results;
+    } catch (error) {
+      console.error("[DB][REPOSITORY] Erro ao buscar logs em lote:", error);
       throw error;
     }
   }

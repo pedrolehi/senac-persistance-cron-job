@@ -38,10 +38,6 @@ export class AssistantService {
   async listAssistants(): Promise<AssistantResponse> {
     try {
       const response = await this.assistant.listAssistants();
-      console.log(
-        "Resposta bruta da API Watson:",
-        JSON.stringify(response.result, null, 2)
-      );
 
       const transformedResponse = {
         assistants: response.result.assistants.map((assistant) => ({
@@ -92,13 +88,13 @@ export class AssistantService {
         const resetDate = new Date(Number(headers["x-ratelimit-reset"]) * 1000);
 
         console.log(
-          `[IBM Watson Rate Limit] X-RateLimit-Remaining: ${headers["x-ratelimit-remaining"]}`
+          `[ASSISTANT][SERVICE] X-RateLimit-Remaining: ${headers["x-ratelimit-remaining"]}`
         );
         console.log(
-          `[IBM Watson Rate Limit] X-RateLimit-Limit: ${headers["x-ratelimit-limit"]}`
+          `[ASSISTANT][SERVICE] X-RateLimit-Limit: ${headers["x-ratelimit-limit"]}`
         );
         console.log(
-          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toLocaleString(
+          `[ASSISTANT][SERVICE] X-RateLimit-Reset: ${resetDate.toLocaleString(
             "pt-BR",
             {
               timeZone: "America/Sao_Paulo",

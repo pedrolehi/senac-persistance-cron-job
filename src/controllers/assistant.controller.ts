@@ -4,7 +4,6 @@
  */
 
 import { z } from "zod";
-import { getTimeInterval } from "../utils/timeParser";
 import {
   LogsResponse,
   LogsResponseSchema,
@@ -15,20 +14,22 @@ import { AssistantService } from "../services/assistant.service";
 export class AssistantController {
   private static instance: AssistantController;
 
-  constructor(private readonly assistantService: AssistantService) {}
+  private constructor(private readonly assistantService: AssistantService) {}
 
-  public static getInstance(
-    assistantService: AssistantService
-  ): AssistantController {
+  public static getInstance(): AssistantController {
     if (!AssistantController.instance) {
-      AssistantController.instance = new AssistantController(assistantService);
+      AssistantController.instance = new AssistantController(
+        AssistantService.getInstance()
+      );
     }
     return AssistantController.instance;
   }
 
-  async getAllLogsForCron(): Promise<LogsResponse> {
+  async getAllLogsForPeriod(
+    startDate: Date,
+    endDate: Date
+  ): Promise<LogsResponse> {
     try {
-      const { startDate, endDate } = getTimeInterval();
       console.log("Fetching all logs between", startDate, "and", endDate);
 
       // Valida as datas

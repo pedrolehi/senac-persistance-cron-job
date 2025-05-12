@@ -19,6 +19,10 @@ export const systemConfig = {
     "testes GEP",
     "testes Suporte",
   ],
+  audit: {
+    cronExpression: "0 12 * * *", // Roda todo dia às 12h
+    reportPath: "logs/audit", // Diretório onde os relatórios serão salvos
+  },
   sensitiveFields: [
     "resultUsuario",
     "resultAluno",

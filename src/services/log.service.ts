@@ -14,8 +14,20 @@ export class LogService {
   }
 
   private formatTimestamp(dateString: string): Date {
-    const date = new Date(dateString);
-    return date;
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        throw new Error(`Data inválida: ${dateString}`);
+      }
+      return date;
+    } catch (error) {
+      console.error(
+        `[LOG][SERVICE] Erro ao formatar timestamp: ${dateString}`,
+        error
+      );
+      // Retorna a data atual como fallback
+      return new Date();
+    }
   }
 
   private extractUserInfo(log: Log) {
@@ -46,10 +58,18 @@ export class LogService {
         timestamp: this.formatTimestamp(log.request_timestamp),
       };
 
+      // console.log(`[LOG][SERVICE] Log transformado:`, {
+      //   log_id: standardLog.log_id,
+      //   timestamp: standardLog.timestamp,
+      //   input_length: standardLog.input.length,
+      //   intents_count: standardLog.intents.length,
+      //   entities_count: standardLog.entities.length,
+      // });
+
       return StandardizedLogSchema.parse(standardLog);
     } catch (error) {
       console.error(
-        `Erro ao transformar log do assistente ${this.assistantName}:`,
+        `[LOG][SERVICE] Erro ao transformar log do assistente ${this.assistantName}:`,
         error
       );
       throw error;
@@ -57,17 +77,30 @@ export class LogService {
   }
 
   public transformLogs(logs: Log[]): StandardizedLog[] {
-    return logs
+    console.log(
+      `[LOG][SERVICE] Iniciando transformação de ${logs.length} logs do assistente ${this.assistantName}`
+    );
+
+    const transformedLogs = logs
       .map((log) => {
         try {
           return this.transformSingleLog(log);
         } catch (error) {
-          console.error(`Erro ao processar log individual:`, error);
+          console.error(
+            `[LOG][SERVICE] Erro ao processar log individual:`,
+            error
+          );
           return null;
         }
       })
       .filter((log): log is StandardizedLog => log !== null)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+    console.log(
+      `[LOG][SERVICE] Transformação concluída: ${transformedLogs.length} logs processados com sucesso`
+    );
+
+    return transformedLogs;
   }
 
   public static processAllAssistants(
@@ -77,6 +110,7 @@ export class LogService {
 
     Object.entries(logsResponse.assistants).forEach(
       ([assistantName, assistantData]) => {
+        console.log("[LOG][SERVICE] Processando assistente:", assistantName);
         const transformer = new LogService(assistantName);
         processedLogs[assistantName] = transformer.transformLogs(
           assistantData.logs

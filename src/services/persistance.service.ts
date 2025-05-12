@@ -1,4 +1,4 @@
-import { LogRepository } from "../repositories/mongo.log.repository";
+import { LogRepository } from "../repositories/log.repository";
 import { SaveResult } from "../schemas/save-result.schema";
 import type { StandardizedLog } from "../schemas/standardized-log.schema";
 

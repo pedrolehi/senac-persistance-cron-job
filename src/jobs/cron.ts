@@ -2,6 +2,7 @@ import { AssistantController } from "./../controllers/assistant.controller";
 import { AssistantService } from "../services/assistant.service";
 import { PersistanceService } from "../services/persistance.service";
 import { LogService } from "../services/log.service";
+import { LogAuditService } from "../services/log-audit.service";
 import { systemConfig } from "../config/system.config";
 import { LogsResponse } from "../schemas/logs.response.schema";
 import { stdin as input, stdout as output } from "process";
@@ -10,18 +11,19 @@ import readline from "readline";
 import path from "path";
 import { CronJob } from "cron";
 import CronExpressionParser from "cron-parser";
+import { getTimeInterval } from "../utils/timeParser";
 
 export class CronJobs {
   private static instance: CronJobs;
   private assistantController: AssistantController;
   private PersistanceService: PersistanceService;
+  private logAuditService: LogAuditService;
   private static hasStarted: boolean = false;
 
   private constructor() {
-    const assistantService = AssistantService.getInstance();
-    this.assistantController =
-      AssistantController.getInstance(assistantService);
+    this.assistantController = AssistantController.getInstance();
     this.PersistanceService = PersistanceService.getInstance();
+    this.logAuditService = new LogAuditService();
   }
 
   public static getInstance(): CronJobs {
@@ -44,7 +46,11 @@ export class CronJobs {
 
   private async fetchRawLogs() {
     console.log("[CRON][FETCH] Iniciando coleta de logs brutos...");
-    const rawLogs = await this.assistantController.getAllLogsForCron();
+    const { startDate, endDate } = getTimeInterval();
+    const rawLogs = await this.assistantController.getAllLogsForPeriod(
+      startDate,
+      endDate
+    );
     console.log("[CRON][FETCH] Logs brutos coletados com sucesso!");
     return rawLogs;
   }
@@ -201,6 +207,48 @@ export class CronJobs {
     }
   }
 
+  private async runAuditJob() {
+    try {
+      console.log(
+        `[AUDIT][START] Iniciando auditoria às ${new Date().toLocaleString(
+          "pt-BR",
+          {
+            timeZone: "America/Sao_Paulo",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }
+        )}`
+      );
+
+      // Pega a data de ontem
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+
+      const auditReport = await this.logAuditService.auditLogsForDay(yesterday);
+
+      console.log("[AUDIT][STATS] Resumo da auditoria:");
+      console.log(
+        `[AUDIT][STATS] Total de logs verificados: ${auditReport.summary.totalLogs}`
+      );
+      console.log(
+        `[AUDIT][STATS] Logs incluídos: ${auditReport.summary.includedLogs}`
+      );
+      console.log(
+        `[AUDIT][STATS] Logs faltantes: ${auditReport.summary.missingLogs}`
+      );
+      console.log(`[AUDIT][STATS] Status: ${auditReport.syncStatus.status}`);
+
+      console.log("[AUDIT][END] Auditoria finalizada com sucesso!");
+    } catch (error) {
+      console.error("[AUDIT][ERROR] Erro durante a auditoria:", error);
+    }
+  }
+
   public async startJobs() {
     if (!CronJobs.hasStarted) {
       const shouldStart = await this.promptForStart();
@@ -213,22 +261,36 @@ export class CronJobs {
       CronJobs.hasStarted = true;
     }
 
-    const cronExpression = systemConfig.cronExpression;
-
-    const job = new CronJob(
-      `${cronExpression}`,
+    // Job de coleta e persistência
+    const collectionJob = new CronJob(
+      systemConfig.cronExpression,
       () => {
-        console.log("[CRON][SCHEDULE] Iniciando job agendado...");
+        console.log("[CRON][SCHEDULE] Iniciando job de coleta...");
         this.runJob();
       },
       null,
       true,
       "America/Sao_Paulo",
       this,
-      true // runOnInit: true - executa imediatamente ao iniciar
+      false
     );
 
-    job.start();
-    console.log("[CRON][INIT] Job iniciado com execução imediata");
+    // Job de auditoria
+    const auditJob = new CronJob(
+      systemConfig.audit.cronExpression,
+      () => {
+        console.log("[AUDIT][SCHEDULE] Iniciando job de auditoria...");
+        this.runAuditJob();
+      },
+      null,
+      true,
+      "America/Sao_Paulo",
+      this,
+      true // Não executa imediatamente ao iniciar
+    );
+
+    collectionJob.start();
+    auditJob.start();
+    console.log("[CRON][INIT] Jobs iniciados com sucesso");
   }
 }
