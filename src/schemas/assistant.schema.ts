@@ -42,7 +42,9 @@ export const AssistantSchema = z.object({
  * Schema para paginação
  */
 export const PaginationSchema = z.object({
-  refresh_url: z.string().url().describe("URL para atualizar os resultados"),
+  refresh_url: z
+    .string()
+    .describe("Caminho relativo ou URL para atualizar os resultados"),
 });
 
 /**

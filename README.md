@@ -86,9 +86,17 @@ Schema para validação dos pontos de sincronização.
 }
 ```
 
+### Pagination
+
+```typescript
+{
+  refresh_url: string; // Caminho relativo ou URL para atualizar os resultados
+}
+```
+
 ## 🔄 Fluxo de Dados
 
-![Fluxo de dados do serviço](src/docs/DataFlow%20-%20Persistência%20de%20Dados%20IBM%20-%20Serviço%20de%20persistência%20de%20dados%20IBM%20API.jpg)
+![Fluxo de dados do serviço](src/docs/dataflow.jpg)
 _Fluxo de dados do serviço de persistência de logs do Watson Assistant_
 
 1. **Coleta de Logs**

@@ -38,6 +38,10 @@ export class AssistantService {
   async listAssistants(): Promise<AssistantResponse> {
     try {
       const response = await this.assistant.listAssistants();
+      console.log(
+        "Resposta bruta da API Watson:",
+        JSON.stringify(response.result, null, 2)
+      );
 
       const transformedResponse = {
         assistants: response.result.assistants.map((assistant) => ({
