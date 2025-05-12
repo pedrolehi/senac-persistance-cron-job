@@ -2,13 +2,11 @@ import {
   StandardizedLog,
   StandardizedLogSchema,
 } from "../schemas/standardized-log.schema";
-import {
-  LogsResponse,
-  LogsResponseSchema,
-} from "./../schemas/logs.response.schema";
-import { Log } from "../schemas/logs.schema";
+import { LogsResponse } from "../schemas/logs.response.schema";
+import { Log, LogCollection } from "../schemas/logs.schema";
+import { systemConfig } from "../config/system.config";
 
-export class LogTransformer {
+export class LogService {
   private assistantName: string;
 
   constructor(assistantName: string) {
@@ -79,12 +77,53 @@ export class LogTransformer {
 
     Object.entries(logsResponse.assistants).forEach(
       ([assistantName, assistantData]) => {
-        const transformer = new LogTransformer(assistantName);
+        const transformer = new LogService(assistantName);
         processedLogs[assistantName] = transformer.transformLogs(
           assistantData.logs
         );
       }
     );
     return processedLogs;
+  }
+
+  // --- SANITIZAÇÃO ---
+
+  private static readonly MASK = "**CONFIDENCIAL**";
+
+  private static sanitizeValue(value: any): any {
+    if (typeof value !== "string") return value;
+    return this.MASK;
+  }
+
+  private static sanitizeObject(obj: unknown): unknown {
+    if (!obj || typeof obj !== "object") return obj;
+
+    if (Array.isArray(obj)) {
+      return obj.map((item) => this.sanitizeObject(item));
+    }
+
+    const sanitizedObj: { [key: string]: unknown } = {};
+
+    for (const [key, value] of Object.entries(obj as object)) {
+      if (systemConfig.sensitiveFields.includes(key)) {
+        sanitizedObj[key] = this.sanitizeValue(value);
+      } else if (value && typeof value === "object") {
+        sanitizedObj[key] = this.sanitizeObject(value);
+      } else {
+        sanitizedObj[key] = value;
+      }
+    }
+
+    return sanitizedObj;
+  }
+
+  public static sanitizeLogs(logs: LogCollection): LogCollection {
+    return {
+      ...logs,
+      logs: logs.logs.map((log: Log) => ({
+        ...log,
+        response: this.sanitizeObject(log.response),
+      })),
+    };
   }
 }

@@ -4,9 +4,9 @@
  * @module index
  */
 
-import { connectToMongoDB } from "./utils/mongo";
+import { connectToMongoDB } from "./config/database";
 import "./config/watson.config";
-import { CronJobs } from "./utils/cron";
+import { CronJobs } from "./jobs/cron";
 
 /**
  * Função principal que inicia o serviço de cron jobs

@@ -2,6 +2,7 @@
   "dependencies": {
     "@fastify/swagger": "^9.5.1",
     "@fastify/swagger-ui": "^5.2.2",
+    "@zodyac/zod-mongoose": "^3.2.0",
     "axios": "^1.8.4",
     "cron": "^4.3.0",
     "cron-parser": "^5.1.1",

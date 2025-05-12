@@ -1,7 +1,7 @@
 import { AssistantController } from "./../controllers/assistant.controller";
 import { AssistantService } from "../services/assistant.service";
 import { PersistanceService } from "../services/persistance.service";
-import { LogTransformer } from "./logTransformer";
+import { LogService } from "../services/log.service";
 import { systemConfig } from "../config/system.config";
 import { LogsResponse } from "../schemas/logs.response.schema";
 import { stdin as input, stdout as output } from "process";
@@ -51,7 +51,7 @@ export class CronJobs {
 
   private standardizeLogs(rawLogs: LogsResponse) {
     console.log("[CRON][STANDARDIZE] Iniciando padronização dos logs...");
-    const standardizedLogs = LogTransformer.processAllAssistants(rawLogs);
+    const standardizedLogs = LogService.processAllAssistants(rawLogs);
     console.log("[CRON][STANDARDIZE] Logs padronizados com sucesso!");
     return standardizedLogs;
   }

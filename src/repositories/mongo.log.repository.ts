@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { getAssistantModel } from "../models/mongo-log.model";
+import { getAssistantModel } from "../models/log.model";
 import { SaveResult } from "../schemas/save-result.schema";
 import type { StandardizedLog } from "../schemas/standardized-log.schema";
 

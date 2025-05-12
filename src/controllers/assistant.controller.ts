@@ -9,7 +9,7 @@ import {
   LogsResponse,
   LogsResponseSchema,
 } from "../schemas/logs.response.schema";
-import { LogSanitizer } from "../utils/sanitizer";
+import { LogService } from "../services/log.service";
 import { AssistantService } from "../services/assistant.service";
 
 export class AssistantController {
@@ -42,7 +42,7 @@ export class AssistantController {
       );
 
       for (const [assistantName, logCollection] of allLogs.entries()) {
-        allLogs.set(assistantName, LogSanitizer.sanitizeLogs(logCollection));
+        allLogs.set(assistantName, LogService.sanitizeLogs(logCollection));
       }
 
       // Converte o Map para um objeto para melhor serialização

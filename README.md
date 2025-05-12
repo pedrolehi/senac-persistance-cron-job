@@ -6,13 +6,14 @@ Este serviço é responsável por coletar, processar e persistir logs do Watson 
 
 ```
 src/
-├── config/         # Configurações do projeto
+├── config/         # Configurações do projeto e conexão com o banco (database.ts)
 ├── controllers/    # Controladores da aplicação
-├── interfaces/     # Interfaces TypeScript
-├── models/         # Modelos do MongoDB
+├── docs/           # Documentação e imagens
+├── models/         # Modelos do MongoDB (gerados a partir dos schemas Zod)
+├── repositories/   # Camada de acesso a dados
 ├── schemas/        # Schemas de validação (Zod)
 ├── services/       # Serviços da aplicação
-└── utils/          # Utilitários
+└── utils/          # Utilitários genéricos
 ```
 
 ## 🧩 Schemas e Tipos
