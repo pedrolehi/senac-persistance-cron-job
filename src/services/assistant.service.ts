@@ -13,12 +13,21 @@ import {
 import { LogCollection } from "../schemas/logs.schema";
 import { z } from "zod";
 import { systemConfig } from "../config/system.config";
+import { Logger } from "../utils/logger";
+import {
+  WatsonError,
+  ValidationError,
+  ConfigurationError,
+} from "../utils/errors";
 
 export class AssistantService {
   private static instance: AssistantService;
   private assistant: AssistantV2;
+  private readonly logger: Logger;
 
   private constructor() {
+    this.logger = Logger.getInstance();
+    this.validateConfig();
     this.assistant = new AssistantV2({
       version: watsonConfig.version!,
       authenticator: new IamAuthenticator({
@@ -26,6 +35,16 @@ export class AssistantService {
       }),
       serviceUrl: watsonConfig.serviceUrl,
     });
+  }
+
+  private validateConfig(): void {
+    if (
+      !watsonConfig.version ||
+      !watsonConfig.apiKey ||
+      !watsonConfig.serviceUrl
+    ) {
+      throw new ConfigurationError("Missing required Watson configuration");
+    }
   }
 
   public static getInstance(): AssistantService {
@@ -53,12 +72,17 @@ export class AssistantService {
 
       const parsedResponse = AssistantResponseSchema.parse(transformedResponse);
       return parsedResponse;
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof z.ZodError) {
-        console.error("Validation error:", error.errors);
-        throw new Error("Invalid response format from Watson API");
+        this.logger.error("Validation error in listAssistants", error.errors);
+        throw new ValidationError("Invalid response format from Watson API");
       }
-      throw error;
+      const watsonError = error as { statusCode?: number; headers?: any };
+      throw new WatsonError(
+        "Failed to list assistants",
+        watsonError.statusCode,
+        watsonError.headers
+      );
     }
   }
 
@@ -74,39 +98,15 @@ export class AssistantService {
       let currentResponse;
 
       do {
-        const params: any = {
+        const params = {
           assistantId,
           pageLimit,
           filter: `request_timestamp>=${startDate.toISOString()},request_timestamp<=${endDate.toISOString()}`,
+          ...(cursor && { cursor }),
         };
-        if (cursor) params.cursor = cursor;
 
         currentResponse = await this.assistant.listLogs(params);
-
-        // LOG DOS HEADERS DE RATE LIMIT
-        const headers = currentResponse.headers;
-        const resetDate = new Date(Number(headers["x-ratelimit-reset"]) * 1000);
-
-        console.log(
-          `[ASSISTANT][SERVICE] X-RateLimit-Remaining: ${headers["x-ratelimit-remaining"]}`
-        );
-        console.log(
-          `[ASSISTANT][SERVICE] X-RateLimit-Limit: ${headers["x-ratelimit-limit"]}`
-        );
-        console.log(
-          `[ASSISTANT][SERVICE] X-RateLimit-Reset: ${resetDate.toLocaleString(
-            "pt-BR",
-            {
-              timeZone: "America/Sao_Paulo",
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            }
-          )}`
-        );
+        this.logger.logRateLimit(currentResponse.headers);
 
         allLogs.logs = [...allLogs.logs, ...currentResponse.result.logs];
 
@@ -120,41 +120,20 @@ export class AssistantService {
       } while (cursor !== null);
 
       allLogs.pagination = { next_url: null };
-
       return allLogs;
     } catch (error: any) {
-      // Se o erro for 429, tente logar os headers também
       if (error.headers) {
-        const resetDate = new Date(
-          Number(error.headers["x-ratelimit-reset"]) * 1000
-        );
-
-        console.error(
-          `[IBM Watson Rate Limit] X-RateLimit-Remaining: ${error.headers["x-ratelimit-remaining"]}`
-        );
-        console.error(
-          `[IBM Watson Rate Limit] X-RateLimit-Limit: ${error.headers["x-ratelimit-limit"]}`
-        );
-        console.log(
-          `[IBM Watson Rate Limit] X-RateLimit-Reset: ${resetDate.toLocaleString(
-            "pt-BR",
-            {
-              timeZone: "America/Sao_Paulo",
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            }
-          )}`
-        );
+        this.logger.logRateLimit(error.headers, "IBM Watson Rate Limit");
       }
-      console.error(
+      this.logger.error(
         `Error fetching logs for assistant environment_id ${assistantId}`,
         error
       );
-      throw error;
+      throw new WatsonError(
+        "Failed to fetch assistant logs",
+        error.statusCode,
+        error.headers
+      );
     }
   }
 
@@ -167,20 +146,19 @@ export class AssistantService {
     const { excludedAssistants } = systemConfig;
 
     for (const assistant of assistants.assistants) {
-      // Pula os assistants que estão na lista de exclusão
       if (excludedAssistants.includes(assistant.name)) {
-        console.log(`Skipping excluded assistant: ${assistant.name}`);
+        this.logger.info(`Skipping excluded assistant: ${assistant.name}`);
         continue;
       }
 
-      console.log("Fetching data from assistant:", assistant.name);
+      this.logger.info("Fetching data from assistant:", assistant.name);
 
       const liveEnv = assistant.assistant_environments.find(
         (env) => env.name === "live"
       );
 
       if (!liveEnv) {
-        console.warn(
+        this.logger.warn(
           `Assistant ${assistant.name} does not have a 'live' environment.`
         );
         continue;
@@ -194,8 +172,8 @@ export class AssistantService {
         );
         logsMap.set(assistant.name, logs);
       } catch (error) {
-        console.error(
-          `Failed to fetch logs for assistant ${liveEnv.environment_id} (live):`,
+        this.logger.error(
+          `Failed to fetch logs for assistant ${assistant.name}`,
           error instanceof Error ? error.message : error
         );
       }

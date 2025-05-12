@@ -286,7 +286,7 @@ export class CronJobs {
       true,
       "America/Sao_Paulo",
       this,
-      true // Não executa imediatamente ao iniciar
+      false // Não executa imediatamente ao iniciar
     );
 
     collectionJob.start();

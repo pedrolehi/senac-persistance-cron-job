@@ -1,13 +1,17 @@
 import { LogRepository } from "../repositories/log.repository";
 import { SaveResult } from "../schemas/save-result.schema";
 import type { StandardizedLog } from "../schemas/standardized-log.schema";
+import { Logger } from "../utils/logger";
+import { DatabaseError } from "../utils/errors";
 
 export class PersistanceService {
   private static instance: PersistanceService;
   private logRepository: LogRepository;
+  private readonly logger: Logger;
 
   private constructor() {
     this.logRepository = LogRepository.getInstance();
+    this.logger = Logger.getInstance();
   }
 
   public static getInstance(): PersistanceService {
@@ -18,20 +22,17 @@ export class PersistanceService {
   }
 
   private logSaveResults(assistantName: string, result: SaveResult): void {
-    console.log(`[DB][SERVICE] Results for ${assistantName}:`);
-    console.log(`- Successfully saved: ${result.count} logs`);
-    if (result.duplicates > 0) {
-      console.log(`- Duplicates found and ignored: ${result.duplicates} logs`);
-    }
-    if (result.error) {
-      console.error(`- Error occurred: ${result.error}`);
-    }
+    this.logger.info(`Results for ${assistantName}:`, {
+      saved: result.count,
+      duplicates: result.duplicates,
+      error: result.error,
+    });
   }
 
   async saveProcessedLogs(
     standardizedLogsByAssistant: Record<string, StandardizedLog[]>
   ): Promise<Record<string, SaveResult>> {
-    console.log("[DB][SERVICE] Starting log persistence process");
+    this.logger.info("Starting log persistence process");
 
     const results: Record<string, SaveResult> = {};
 
@@ -39,7 +40,7 @@ export class PersistanceService {
       standardizedLogsByAssistant
     )) {
       if (!logs?.length) {
-        console.log(`[DB][SERVICE] No logs to process for ${assistantName}`);
+        this.logger.info(`No logs to process for ${assistantName}`);
         results[assistantName] = {
           success: true,
           count: 0,
@@ -48,8 +49,8 @@ export class PersistanceService {
         continue;
       }
 
-      console.log(
-        `[DB][SERVICE] Processing ${logs.length} logs for assistant ${assistantName}`
+      this.logger.info(
+        `Processing ${logs.length} logs for assistant ${assistantName}`
       );
 
       try {
@@ -58,17 +59,15 @@ export class PersistanceService {
           logs
         );
         this.logSaveResults(assistantName, results[assistantName]);
-      } catch (error: any) {
-        console.error(
-          `[DB][SERVICE] Failed to save logs for ${assistantName}:`,
-          error.code
-        );
+      } catch (error: unknown) {
+        this.logger.error(`Failed to save logs for ${assistantName}`, error);
         results[assistantName] = {
           success: false,
           count: 0,
           duplicates: 0,
           error: error instanceof Error ? error.message : String(error),
         };
+        throw new DatabaseError(`Falha ao salvar logs para ${assistantName}`);
       }
     }
 

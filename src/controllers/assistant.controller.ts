@@ -10,11 +10,16 @@ import {
 } from "../schemas/logs.response.schema";
 import { LogService } from "../services/log.service";
 import { AssistantService } from "../services/assistant.service";
+import { Logger } from "../utils/logger";
+import { ValidationError } from "../utils/errors";
 
 export class AssistantController {
   private static instance: AssistantController;
+  private readonly logger: Logger;
 
-  private constructor(private readonly assistantService: AssistantService) {}
+  private constructor(private readonly assistantService: AssistantService) {
+    this.logger = Logger.getInstance();
+  }
 
   public static getInstance(): AssistantController {
     if (!AssistantController.instance) {
@@ -30,11 +35,13 @@ export class AssistantController {
     endDate: Date
   ): Promise<LogsResponse> {
     try {
-      console.log("Fetching all logs between", startDate, "and", endDate);
+      this.logger.info("Fetching all logs between", { startDate, endDate });
 
       // Valida as datas
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        throw new Error("Invalid date format in time interval calculation");
+        throw new ValidationError(
+          "Invalid date format in time interval calculation"
+        );
       }
 
       const allLogs = await this.assistantService.getAllAssistantsLogs(
@@ -59,10 +66,13 @@ export class AssistantController {
       return result;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error("Validation error:", error.errors);
-        throw new Error("Invalid log data structure");
+        this.logger.error(
+          "Validation error in getAllLogsForPeriod",
+          error.errors
+        );
+        throw new ValidationError("Invalid log data structure");
       }
-      console.error("Error fetching logs:", error);
+      this.logger.error("Error fetching logs", error);
       throw error;
     }
   }

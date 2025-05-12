@@ -1,17 +1,8 @@
 export const systemConfig = {
   timePeriod: 70, // Ex: timePeriod: 60 (in minutes)
-  cronExpression: `0 * * * *`, //cron pattern que define a frequencia com que a tarefa é realizada.
-  // sendo o schema:
-  //  *    *    *    *    *    *
-  // ┬    ┬    ┬    ┬    ┬    ┬
-  // │    │    │    │    │    │
-  // │    │    │    │    │    └─ day of week (0-7, 1L-7L) (0 or 7 is Sun)
-  // │    │    │    │    └────── month (1-12, JAN-DEC)
-  // │    │    │    └─────────── day of month (1-31, L)
-  // │    │    └──────────────── hour (0-23)
-  // │    └───────────────────── minute (0-59)
-  // └────────────────────────── second (0-59, optional)
+  cronExpression: `0 * * * *`, //cron pattern que define a frequencia com que a tarefa é realizada. Ex: 0 * * * * (every hour)
   filesPerPage: 200, // Ex: filesPerPage: 200
+  debug: process.env.NODE_ENV === "development", // Habilita logs de debug em ambiente de desenvolvimento
   excludedAssistants: [
     "HUB",
     "GTAE",
@@ -20,7 +11,7 @@ export const systemConfig = {
     "testes Suporte",
   ],
   audit: {
-    cronExpression: "0 12 * * *", // Roda todo dia às 12h
+    cronExpression: "30 9 * * *", // Roda todo dia às 9:30 da manhã
     reportPath: "logs/audit", // Diretório onde os relatórios serão salvos
   },
   sensitiveFields: [

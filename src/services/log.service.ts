@@ -5,26 +5,27 @@ import {
 import { LogsResponse } from "../schemas/logs.response.schema";
 import { Log, LogCollection } from "../schemas/logs.schema";
 import { systemConfig } from "../config/system.config";
+import { Logger } from "../utils/logger";
+import { ValidationError, TransformationError } from "../utils/errors";
 
 export class LogService {
   private assistantName: string;
+  private readonly logger: Logger;
 
   constructor(assistantName: string) {
     this.assistantName = assistantName;
+    this.logger = Logger.getInstance();
   }
 
   private formatTimestamp(dateString: string): Date {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
-        throw new Error(`Data inválida: ${dateString}`);
+        throw new ValidationError(`Data inválida: ${dateString}`);
       }
       return date;
     } catch (error) {
-      console.error(
-        `[LOG][SERVICE] Erro ao formatar timestamp: ${dateString}`,
-        error
-      );
+      this.logger.error(`Erro ao formatar timestamp: ${dateString}`, error);
       // Retorna a data atual como fallback
       return new Date();
     }
@@ -68,17 +69,21 @@ export class LogService {
 
       return StandardizedLogSchema.parse(standardLog);
     } catch (error) {
-      console.error(
-        `[LOG][SERVICE] Erro ao transformar log do assistente ${this.assistantName}:`,
+      this.logger.error(
+        `Erro ao transformar log do assistente ${this.assistantName}`,
         error
       );
-      throw error;
+      throw new TransformationError(
+        `Falha ao transformar log ${log.log_id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
   }
 
   public transformLogs(logs: Log[]): StandardizedLog[] {
-    console.log(
-      `[LOG][SERVICE] Iniciando transformação de ${logs.length} logs do assistente ${this.assistantName}`
+    this.logger.info(
+      `Iniciando transformação de ${logs.length} logs do assistente ${this.assistantName}`
     );
 
     const transformedLogs = logs
@@ -86,8 +91,8 @@ export class LogService {
         try {
           return this.transformSingleLog(log);
         } catch (error) {
-          console.error(
-            `[LOG][SERVICE] Erro ao processar log individual:`,
+          this.logger.error(
+            `Erro ao processar log individual ${log.log_id}`,
             error
           );
           return null;
@@ -96,8 +101,11 @@ export class LogService {
       .filter((log): log is StandardizedLog => log !== null)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-    console.log(
-      `[LOG][SERVICE] Transformação concluída: ${transformedLogs.length} logs processados com sucesso`
+    const successRate = ((transformedLogs.length / logs.length) * 100).toFixed(
+      2
+    );
+    this.logger.info(
+      `Transformação concluída: ${transformedLogs.length}/${logs.length} logs processados (${successRate}% de sucesso)`
     );
 
     return transformedLogs;
@@ -107,10 +115,11 @@ export class LogService {
     logsResponse: LogsResponse
   ): Record<string, StandardizedLog[]> {
     const processedLogs: Record<string, StandardizedLog[]> = {};
+    const logger = Logger.getInstance();
 
     Object.entries(logsResponse.assistants).forEach(
       ([assistantName, assistantData]) => {
-        console.log("[LOG][SERVICE] Processando assistente:", assistantName);
+        logger.info("Processando assistente:", assistantName);
         const transformer = new LogService(assistantName);
         processedLogs[assistantName] = transformer.transformLogs(
           assistantData.logs
@@ -124,7 +133,7 @@ export class LogService {
 
   private static readonly MASK = "**CONFIDENCIAL**";
 
-  private static sanitizeValue(value: any): any {
+  private static sanitizeValue(value: unknown): unknown {
     if (typeof value !== "string") return value;
     return this.MASK;
   }

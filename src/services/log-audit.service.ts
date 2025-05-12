@@ -13,31 +13,41 @@ import { LogService } from "../services/log.service";
 import { PersistanceService } from "../services/persistance.service";
 import { systemConfig } from "../config/system.config";
 import { AuditModel } from "../models/audit.model";
+import { Logger } from "../utils/logger";
+import { ValidationError, DatabaseError } from "../utils/errors";
 
 export class LogAuditService {
   private assistantController: AssistantController;
   private logRepository: LogRepository;
   private persistanceService: PersistanceService;
+  private readonly logger: Logger;
 
   constructor() {
     this.assistantController = AssistantController.getInstance();
     this.logRepository = LogRepository.getInstance();
     this.persistanceService = PersistanceService.getInstance();
+    this.logger = Logger.getInstance();
   }
 
   public async auditLogsForDay(date: Date) {
-    if (!(date instanceof Date) || isNaN(date.getTime())) {
-      throw new Error("Data inválida");
+    const startTime = Date.now();
+
+    // Se não for especificada uma data, usa o dia anterior
+    const auditDate = date || new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    if (!(auditDate instanceof Date) || isNaN(auditDate.getTime())) {
+      throw new ValidationError("Data inválida");
     }
 
-    const startDate = new Date(date);
+    const startDate = new Date(auditDate);
     startDate.setHours(0, 0, 0, 0);
 
-    const endDate = new Date(date);
+    const endDate = new Date(auditDate);
     endDate.setHours(23, 59, 59, 999);
 
-    console.log(
-      `[AUDIT][SERVICE] Iniciando auditoria para o dia ${startDate.toLocaleDateString()}`
+    this.logger.info(
+      `Iniciando auditoria para o dia ${startDate.toLocaleDateString()}`,
+      { startDate, endDate }
     );
 
     // Busca todos os logs do dia
@@ -51,8 +61,9 @@ export class LogAuditService {
 
     // Se houver logs faltantes, processa e salva
     if (syncReport.syncStatus.missingLogs.length > 0) {
-      console.log(
-        `[AUDIT][SERVICE] Encontrados ${syncReport.syncStatus.missingLogs.length} logs faltantes. Iniciando processamento...`
+      this.logger.info(
+        `Encontrados ${syncReport.syncStatus.missingLogs.length} logs faltantes. Iniciando processamento...`,
+        { missingLogs: syncReport.syncStatus.missingLogs }
       );
 
       // Cria um novo LogsResponse apenas com os logs faltantes
@@ -86,9 +97,12 @@ export class LogAuditService {
         LogService.processAllAssistants(missingLogsResponse);
       await this.persistanceService.saveProcessedLogs(standardizedLogs);
 
-      console.log(
-        "[AUDIT][SERVICE] Logs faltantes processados e salvos com sucesso!"
-      );
+      this.logger.info("Logs faltantes processados e salvos com sucesso!", {
+        processedLogs: Object.entries(standardizedLogs).reduce(
+          (acc, [assistant, logs]) => ({ ...acc, [assistant]: logs.length }),
+          {}
+        ),
+      });
     }
 
     // Prepara o relatório final
@@ -112,13 +126,13 @@ export class LogAuditService {
     // Salva o relatório na collection audit
     try {
       const validatedReport = SyncReportSchema.parse(fullReport);
-      await AuditModel.create(validatedReport);
-      console.log("[AUDIT][SERVICE] Relatório salvo na collection audit");
+      const savedReport = await AuditModel.create(validatedReport);
+      this.logger.info("Relatório salvo na collection audit", {
+        reportId: savedReport._id,
+      });
     } catch (error) {
-      console.error(
-        "[AUDIT][SERVICE] Erro ao salvar relatório na collection audit:",
-        error
-      );
+      this.logger.error("Erro ao salvar relatório na collection audit", error);
+      throw new DatabaseError("Falha ao salvar relatório de auditoria");
     }
 
     // Salva também em arquivo JSON para referência
@@ -137,9 +151,15 @@ export class LogAuditService {
       "utf-8"
     );
 
-    console.log(
-      `[AUDIT][SERVICE] Relatório de sincronização gerado: ${reportPath}`
-    );
+    const executionTime = ((Date.now() - startTime) / 1000).toFixed(2);
+    this.logger.info(`Auditoria concluída em ${executionTime}s`, {
+      reportPath,
+      executionTime,
+      totalLogs: syncReport.summary.totalLogs,
+      missingLogs: syncReport.summary.missingLogs,
+      includedLogs: syncReport.summary.includedLogs,
+    });
+
     return syncReport;
   }
 
@@ -221,11 +241,8 @@ export class LogAuditService {
     try {
       return await this.logRepository.findLogIdsInBatch(logs);
     } catch (error) {
-      console.error(
-        "[AUDIT][SERVICE] Erro ao verificar logs no MongoDB:",
-        error
-      );
-      throw new Error("Falha ao verificar logs no banco de dados");
+      this.logger.error("Erro ao verificar logs no MongoDB", error);
+      throw new DatabaseError("Falha ao verificar logs no banco de dados");
     }
   }
 }
