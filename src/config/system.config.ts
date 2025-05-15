@@ -55,5 +55,19 @@ export const systemConfig = {
     "banco",
     "agencia",
     "numeroConta",
+    "password",
+    "token",
+    "apiKey",
+    "secret",
   ],
+  email: {
+    subjectPrefix: "[SENAC Chatbot Persistence]",
+    stakeholders: [
+      // "erico.msousa@sp.senac.br",
+      // "priscila.jlrodolpho@sp.senac.br",
+      // "flavio.cmachado@sp.senac.br",
+      "pedro.lrmuniz@sp.senac.br",
+    ],
+    sender: "assistentevirtual@sp.senac.br",
+  },
 };

@@ -10,7 +10,7 @@ import {
 } from "../schemas/logs.response.schema";
 import { LogService } from "../services/log.service";
 import { AssistantService } from "../services/assistant.service";
-import { Logger } from "../utils/logger";
+import { Logger, LoggerImpl } from "../utils";
 import { ValidationError } from "../utils/errors";
 
 export class AssistantController {
@@ -18,7 +18,7 @@ export class AssistantController {
   private readonly logger: Logger;
 
   private constructor(private readonly assistantService: AssistantService) {
-    this.logger = Logger.getInstance();
+    this.logger = LoggerImpl.getInstance();
   }
 
   public static getInstance(): AssistantController {

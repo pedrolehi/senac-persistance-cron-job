@@ -1,7 +1,7 @@
 import { LogRepository } from "../repositories/log.repository";
 import { SaveResult } from "../schemas/save-result.schema";
 import type { StandardizedLog } from "../schemas/standardized-log.schema";
-import { Logger } from "../utils/logger";
+import { Logger, LoggerImpl } from "../utils";
 import { DatabaseError } from "../utils/errors";
 
 export class PersistanceService {
@@ -11,7 +11,7 @@ export class PersistanceService {
 
   private constructor() {
     this.logRepository = LogRepository.getInstance();
-    this.logger = Logger.getInstance();
+    this.logger = LoggerImpl.getInstance();
   }
 
   public static getInstance(): PersistanceService {
@@ -32,7 +32,9 @@ export class PersistanceService {
   async saveProcessedLogs(
     standardizedLogsByAssistant: Record<string, StandardizedLog[]>
   ): Promise<Record<string, SaveResult>> {
-    this.logger.info("Starting log persistence process");
+    this.logger.info("Starting log persistence process", {
+      assistantCount: Object.keys(standardizedLogsByAssistant).length,
+    });
 
     const results: Record<string, SaveResult> = {};
 
@@ -40,7 +42,9 @@ export class PersistanceService {
       standardizedLogsByAssistant
     )) {
       if (!logs?.length) {
-        this.logger.info(`No logs to process for ${assistantName}`);
+        this.logger.info(`No logs to process for ${assistantName}`, {
+          assistantName,
+        });
         results[assistantName] = {
           success: true,
           count: 0,
@@ -50,7 +54,8 @@ export class PersistanceService {
       }
 
       this.logger.info(
-        `Processing ${logs.length} logs for assistant ${assistantName}`
+        `Processing ${logs.length} logs for assistant ${assistantName}`,
+        { assistantName, logCount: logs.length }
       );
 
       try {

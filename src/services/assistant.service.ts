@@ -13,12 +13,13 @@ import {
 import { LogCollection } from "../schemas/logs.schema";
 import { z } from "zod";
 import { systemConfig } from "../config/system.config";
-import { Logger } from "../utils/logger";
+import { Logger, RateLimitHeaders } from "../schemas/logger.schema";
 import {
   WatsonError,
   ValidationError,
   ConfigurationError,
 } from "../utils/errors";
+import { LoggerImpl } from "../utils";
 
 export class AssistantService {
   private static instance: AssistantService;
@@ -26,7 +27,7 @@ export class AssistantService {
   private readonly logger: Logger;
 
   private constructor() {
-    this.logger = Logger.getInstance();
+    this.logger = LoggerImpl.getInstance();
     this.validateConfig();
     this.assistant = new AssistantV2({
       version: watsonConfig.version!,
@@ -106,7 +107,27 @@ export class AssistantService {
         };
 
         currentResponse = await this.assistant.listLogs(params);
-        this.logger.logRateLimit(currentResponse.headers);
+
+        // Converte os headers para o tipo RateLimitHeaders
+        const rateLimitHeaders: Partial<RateLimitHeaders> = {
+          "x-ratelimit-remaining": Array.isArray(
+            currentResponse.headers["x-ratelimit-remaining"]
+          )
+            ? currentResponse.headers["x-ratelimit-remaining"][0]
+            : currentResponse.headers["x-ratelimit-remaining"],
+          "x-ratelimit-limit": Array.isArray(
+            currentResponse.headers["x-ratelimit-limit"]
+          )
+            ? currentResponse.headers["x-ratelimit-limit"][0]
+            : currentResponse.headers["x-ratelimit-limit"],
+          "x-ratelimit-reset": Array.isArray(
+            currentResponse.headers["x-ratelimit-reset"]
+          )
+            ? currentResponse.headers["x-ratelimit-reset"][0]
+            : currentResponse.headers["x-ratelimit-reset"],
+        };
+
+        this.logger.logRateLimit(rateLimitHeaders, "IBM Watson Rate Limit");
 
         allLogs.logs = [...allLogs.logs, ...currentResponse.result.logs];
 
@@ -123,7 +144,22 @@ export class AssistantService {
       return allLogs;
     } catch (error: any) {
       if (error.headers) {
-        this.logger.logRateLimit(error.headers, "IBM Watson Rate Limit");
+        // Converte os headers do erro para o tipo RateLimitHeaders
+        const rateLimitHeaders: Partial<RateLimitHeaders> = {
+          "x-ratelimit-remaining": Array.isArray(
+            error.headers["x-ratelimit-remaining"]
+          )
+            ? error.headers["x-ratelimit-remaining"][0]
+            : error.headers["x-ratelimit-remaining"],
+          "x-ratelimit-limit": Array.isArray(error.headers["x-ratelimit-limit"])
+            ? error.headers["x-ratelimit-limit"][0]
+            : error.headers["x-ratelimit-limit"],
+          "x-ratelimit-reset": Array.isArray(error.headers["x-ratelimit-reset"])
+            ? error.headers["x-ratelimit-reset"][0]
+            : error.headers["x-ratelimit-reset"],
+        };
+
+        this.logger.logRateLimit(rateLimitHeaders, "IBM Watson Rate Limit");
       }
       this.logger.error(
         `Error fetching logs for assistant environment_id ${assistantId}`,
@@ -147,7 +183,7 @@ export class AssistantService {
 
     for (const assistant of assistants.assistants) {
       if (excludedAssistants.includes(assistant.name)) {
-        this.logger.info(`Skipping excluded assistant: ${assistant.name}`);
+        this.logger.info("Skipping excluded assistant:", assistant.name);
         continue;
       }
 
@@ -156,10 +192,10 @@ export class AssistantService {
       const liveEnv = assistant.assistant_environments.find(
         (env) => env.name === "live"
       );
-
       if (!liveEnv) {
         this.logger.warn(
-          `Assistant ${assistant.name} does not have a 'live' environment.`
+          `Assistant ${assistant.name} does not have a 'live' environment.`,
+          assistant.name
         );
         continue;
       }
@@ -172,10 +208,13 @@ export class AssistantService {
         );
         logsMap.set(assistant.name, logs);
       } catch (error) {
+        console.log("Error caught in getAllAssistantsLogs:", error);
         this.logger.error(
           `Failed to fetch logs for assistant ${assistant.name}`,
-          error instanceof Error ? error.message : error
+          error
         );
+        // Não propagamos o erro para não interromper o processamento dos outros assistentes
+        // Mas mantemos o log completo do erro para facilitar o debug
       }
     }
     return logsMap;

@@ -1,10 +1,5 @@
 import { systemConfig } from "../config/system.config";
-
-export interface RateLimitHeaders {
-  "x-ratelimit-remaining": string;
-  "x-ratelimit-limit": string;
-  "x-ratelimit-reset": string;
-}
+import { Logger, RateLimitHeaders } from "../schemas/logger.schema";
 
 export enum LogLevel {
   INFO = "INFO",
@@ -13,17 +8,22 @@ export enum LogLevel {
   DEBUG = "DEBUG",
 }
 
-export class Logger {
-  private static instance: Logger;
+export class LoggerImpl implements Logger {
+  private static instance: LoggerImpl;
   private readonly timeZone = "America/Sao_Paulo";
 
   private constructor() {}
 
   public static getInstance(): Logger {
-    if (!Logger.instance) {
-      Logger.instance = new Logger();
+    if (!LoggerImpl.instance) {
+      LoggerImpl.instance = new LoggerImpl();
     }
-    return Logger.instance;
+    return LoggerImpl.instance;
+  }
+
+  // Método para testes
+  public static resetInstance(): void {
+    LoggerImpl.instance = undefined as any;
   }
 
   private formatDate(date: Date): string {
@@ -59,26 +59,26 @@ export class Logger {
     }
   }
 
-  public info(message: string, data?: unknown) {
+  public info(message: string, data?: unknown): void {
     this.log(LogLevel.INFO, message, data);
   }
 
-  public warn(message: string, data?: unknown) {
+  public warn(message: string, data?: unknown): void {
     this.log(LogLevel.WARN, message, data);
   }
 
-  public error(message: string, data?: unknown) {
+  public error(message: string, data?: unknown): void {
     this.log(LogLevel.ERROR, message, data);
   }
 
-  public debug(message: string, data?: unknown) {
+  public debug(message: string, data?: unknown): void {
     this.log(LogLevel.DEBUG, message, data);
   }
 
   public logRateLimit(
     headers: Partial<RateLimitHeaders>,
     context: string = "ASSISTANT"
-  ) {
+  ): void {
     if (!headers["x-ratelimit-reset"]) {
       this.warn(`[${context}] Rate limit headers incomplete`, headers);
       return;

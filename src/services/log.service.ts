@@ -5,7 +5,7 @@ import {
 import { LogsResponse } from "../schemas/logs.response.schema";
 import { Log, LogCollection } from "../schemas/logs.schema";
 import { systemConfig } from "../config/system.config";
-import { Logger } from "../utils/logger";
+import { Logger, LoggerImpl } from "../utils";
 import { ValidationError, TransformationError } from "../utils/errors";
 
 export class LogService {
@@ -14,7 +14,7 @@ export class LogService {
 
   constructor(assistantName: string) {
     this.assistantName = assistantName;
-    this.logger = Logger.getInstance();
+    this.logger = LoggerImpl.getInstance();
   }
 
   private formatTimestamp(dateString: string): Date {
@@ -83,7 +83,11 @@ export class LogService {
 
   public transformLogs(logs: Log[]): StandardizedLog[] {
     this.logger.info(
-      `Iniciando transformação de ${logs.length} logs do assistente ${this.assistantName}`
+      `Iniciando transformação de ${logs.length} logs do assistente ${this.assistantName}`,
+      {
+        assistantName: this.assistantName,
+        logCount: logs.length,
+      }
     );
 
     const transformedLogs = logs
@@ -105,7 +109,13 @@ export class LogService {
       2
     );
     this.logger.info(
-      `Transformação concluída: ${transformedLogs.length}/${logs.length} logs processados (${successRate}% de sucesso)`
+      `Transformação concluída: ${transformedLogs.length}/${logs.length} logs processados (${successRate}% de sucesso)`,
+      {
+        assistantName: this.assistantName,
+        logCount: logs.length,
+        successCount: transformedLogs.length,
+        successRate,
+      }
     );
 
     return transformedLogs;
@@ -115,7 +125,7 @@ export class LogService {
     logsResponse: LogsResponse
   ): Record<string, StandardizedLog[]> {
     const processedLogs: Record<string, StandardizedLog[]> = {};
-    const logger = Logger.getInstance();
+    const logger = LoggerImpl.getInstance();
 
     Object.entries(logsResponse.assistants).forEach(
       ([assistantName, assistantData]) => {

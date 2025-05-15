@@ -6,24 +6,27 @@ import { LogAuditService } from "../services/log-audit.service";
 import { systemConfig } from "../config/system.config";
 import { LogsResponse } from "../schemas/logs.response.schema";
 import { stdin as input, stdout as output } from "process";
-import { promises as fs } from "fs";
+import { promises as fs, truncate } from "fs";
 import readline from "readline";
 import path from "path";
 import { CronJob } from "cron";
 import CronExpressionParser from "cron-parser";
 import { getTimeInterval } from "../utils/timeParser";
+import { EmailService } from "../services/email.service";
 
 export class CronJobs {
   private static instance: CronJobs;
   private assistantController: AssistantController;
   private PersistanceService: PersistanceService;
   private logAuditService: LogAuditService;
+  private emailService: EmailService;
   private static hasStarted: boolean = false;
 
   private constructor() {
     this.assistantController = AssistantController.getInstance();
     this.PersistanceService = PersistanceService.getInstance();
     this.logAuditService = new LogAuditService();
+    this.emailService = EmailService.getInstance();
   }
 
   public static getInstance(): CronJobs {
@@ -203,26 +206,20 @@ export class CronJobs {
       this.logNextExecution();
     } catch (error) {
       console.error("[CRON][ERROR] Erro durante o processamento:", error);
+
+      // Envia email de notificação de erro
+      await this.emailService.sendErrorNotification(error as Error, {
+        jobName: "processLogs",
+        timestamp: new Date().toISOString(),
+      });
+
       this.logNextExecution();
     }
   }
 
   private async runAuditJob() {
     try {
-      console.log(
-        `[AUDIT][START] Iniciando auditoria às ${new Date().toLocaleString(
-          "pt-BR",
-          {
-            timeZone: "America/Sao_Paulo",
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          }
-        )}`
-      );
+      console.log(`[AUDIT][START] Iniciando auditoria às ${new Date()}`);
 
       // Pega a data de ontem
       const yesterday = new Date();
@@ -286,7 +283,7 @@ export class CronJobs {
       true,
       "America/Sao_Paulo",
       this,
-      false // Não executa imediatamente ao iniciar
+      true // Não executa imediatamente ao iniciar
     );
 
     collectionJob.start();
