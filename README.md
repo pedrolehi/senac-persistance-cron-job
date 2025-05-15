@@ -45,53 +45,139 @@ Schema para validação dos dados do Watson Assistant.
   assistant_skills: AssistantSkill[];      // Lista de habilidades
   assistant_environments: AssistantEnvironment[]; // Lista de ambientes
 }
+
+// AssistantResponse
+{
+  assistants: Assistant[];         // Lista de assistentes
+  pagination: {                    // Informações de paginação
+    refresh_url: string;          // URL para atualizar os resultados
+  }
+}
 ```
 
-### Logs Response Schema
+### Logs Schema
 
-Schema para validação da resposta de logs do Watson Assistant.
+Schemas para validação dos logs do Watson Assistant.
 
 ```typescript
+// Log (Log bruto da IBM)
 {
-  startDate: string;   // Data de início do período em ISO 8601
-  endDate: string;     // Data de fim do período em ISO 8601
-  assistants: {        // Mapa de logs por assistente
+  log_id: string;                 // ID único do log na IBM
+  request_timestamp: string;       // Timestamp da requisição
+  response_timestamp: string;      // Timestamp da resposta
+  language: string;               // Idioma da conversa
+  customer_id?: string;           // ID do cliente (opcional)
+  assistant_id: string;           // ID do assistente virtual
+  session_id: string;             // ID da sessão da conversa
+  input: any;                     // Dados de entrada da conversa
+  response: any;                  // Dados de resposta da conversa
+}
+
+// LogCollection
+{
+  logs: Log[];                    // Lista de logs
+  pagination: {                   // Informações de paginação
+    next_url: string | null;      // URL para próxima página
+  }
+}
+
+// LogsResponse
+{
+  startDate: string;              // Data de início do período em ISO 8601
+  endDate: string;                // Data de fim do período em ISO 8601
+  assistants: {                   // Mapa de logs por assistente
     [assistantName: string]: LogCollection;
   }
 }
 ```
 
-### Save Result Schema
+### Standardized Log Schema
 
-Schema para validação do resultado do salvamento de logs.
+Schema para validação dos logs padronizados antes de salvar no MongoDB.
 
 ```typescript
+// User
 {
-  success: boolean;           // Indica se o salvamento foi bem-sucedido
-  count: number;             // Número de logs salvos com sucesso
-  duplicates: number;        // Número de logs duplicados encontrados
-  savedLogs?: StandardizedLog; // Logs que foram salvos (opcional)
-  error?: string;            // Mensagem de erro, se houver
+  session_id: string;             // ID da sessão do usuário
+  chapa?: string;                 // Número da chapa do funcionário (opcional)
+  emplid?: string;                // ID do funcionário no sistema (opcional)
+}
+
+// StandardizedLog
+{
+  log_id: string;                 // ID único do log
+  conversation_id: string;        // ID da conversa
+  user: User;                     // Dados do usuário
+  context: Record<string, any>;   // Contexto da conversa (campos dinâmicos)
+  input: string;                  // Texto de entrada do usuário
+  intents: any[];                 // Intenções detectadas
+  entities: any[];                // Entidades detectadas
+  output?: any[] | null;          // Respostas do assistente
+  timestamp: Date;                // Data e hora do log
 }
 ```
 
-### Sync Point Schema
+### Sync Report Schema
 
-Schema para validação dos pontos de sincronização.
+Schema para validação do relatório de sincronização.
 
 ```typescript
+// SyncStatus
 {
-  assistantId: string; // ID do assistente
-  lastSyncTimestamp: Date; // Timestamp da última sincronização
-  lastLogId: string; // ID do último log sincronizado
+  status: "SUCCESS" | "PARTIAL" | "FAILURE";
+  missingLogs: {
+    assistant: string;
+    logId: string;
+    timestamp: string;
+  }[];
+  includedLogs: {
+    assistant: string;
+    logId: string;
+    timestamp: string;
+  }[];
+}
+
+// AssistantSummary
+{
+  name: string;                   // Nome do assistente
+  totalLogs: number;              // Total de logs processados
+  includedLogs: number;           // Logs incluídos com sucesso
+  missingLogs: number;            // Logs faltantes
+}
+
+// SyncReport
+{
+  timestamp: string;              // Data/hora do relatório
+  syncStatus: SyncStatus;         // Status da sincronização
+  summary: {
+    totalLogs: number;            // Total de logs processados
+    includedLogs: number;         // Logs incluídos com sucesso
+    missingLogs: number;          // Logs faltantes
+    assistants: AssistantSummary[]; // Resumo por assistente
+  };
+  sanitizedLogs: Record<string, LogCollection>; // Logs sanitizados
 }
 ```
 
-### Pagination
+### Logger Schema
+
+Schema para validação do logger.
 
 ```typescript
+// RateLimitHeaders
 {
-  refresh_url: string; // Caminho relativo ou URL para atualizar os resultados
+  "x-ratelimit-remaining"?: string;
+  "x-ratelimit-limit"?: string;
+  "x-ratelimit-reset"?: string;
+}
+
+// Logger
+{
+  info(message: string, data?: unknown): void;
+  warn(message: string, data?: unknown): void;
+  error(message: string, data?: unknown): void;
+  debug(message: string, data?: unknown): void;
+  logRateLimit(headers: RateLimitHeaders, context?: string): void;
 }
 ```
 
@@ -117,7 +203,8 @@ _Fluxo de dados do serviço de persistência de logs do Watson Assistant_
 
 4. **Sincronização**
    - O sistema mantém um registro do último log sincronizado
-   - O ponto de sincronização é validado usando o `SyncPointSchema`
+   - O status da sincronização é registrado usando o `SyncReportSchema`
+   - Relatórios detalhados são gerados para cada operação de sincronização
 
 ## ✅ Validações
 
@@ -160,14 +247,24 @@ if (result.success) {
 ### Atualizando Ponto de Sincronização
 
 ```typescript
-const syncPoint = {
-  assistantId: "assistant-1",
-  lastSyncTimestamp: new Date(),
-  lastLogId: "log-123",
+const syncReport = {
+  timestamp: new Date().toISOString(),
+  syncStatus: {
+    status: "SUCCESS",
+    missingLogs: [],
+    includedLogs: [],
+  },
+  summary: {
+    totalLogs: 100,
+    includedLogs: 100,
+    missingLogs: 0,
+    assistants: [],
+  },
+  sanitizedLogs: {},
 };
 
 // Validação com Zod
-const validatedSyncPoint = SyncPointSchema.parse(syncPoint);
+const validatedSyncReport = SyncReportSchema.parse(syncReport);
 ```
 
 ## ⚙️ Configuração
