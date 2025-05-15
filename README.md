@@ -371,7 +371,3 @@ Os testes cobrem:
 - Manipulação de erros e exceções
 - Validações de dados e schemas
 - Integração com serviços externos
-
-```
-
-```
