@@ -225,8 +225,16 @@ Todos os schemas utilizam o Zod para validação, garantindo:
 
 ```typescript
 const assistantService = AssistantService.getInstance();
+
+// Buscar logs de um assistente específico
 const logs = await assistantService.getAssistantLogs(
-  "assistant-id",
+  "environment-id",
+  new Date("2024-01-01"),
+  new Date("2024-01-31")
+);
+
+// Buscar logs de todos os assistentes
+const allLogs = await assistantService.getAllAssistantsLogs(
   new Date("2024-01-01"),
   new Date("2024-01-31")
 );
@@ -236,12 +244,21 @@ const logs = await assistantService.getAssistantLogs(
 
 ```typescript
 const persistanceService = PersistanceService.getInstance();
-const result = await persistanceService.saveProcessedLogs(standardizedLogs);
 
-if (result.success) {
-  console.log(`Salvos ${result.count} logs com sucesso`);
-  if (result.duplicates > 0) {
-    console.log(`${result.duplicates} logs duplicados ignorados`);
+// Salvar logs processados
+const results = await persistanceService.saveProcessedLogs({
+  "assistant-name": standardizedLogs,
+});
+
+// Verificar resultados
+for (const [assistantName, result] of Object.entries(results)) {
+  if (result.success) {
+    console.log(`${assistantName}: ${result.count} logs salvos`);
+    if (result.duplicates > 0) {
+      console.log(`${result.duplicates} logs duplicados ignorados`);
+    }
+  } else {
+    console.error(`${assistantName}: Erro ao salvar logs - ${result.error}`);
   }
 }
 ```
@@ -274,99 +291,27 @@ const validatedSyncReport = SyncReportSchema.parse(syncReport);
 O serviço utiliza variáveis de ambiente para configuração. Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
 
 ```env
-MONGODB_URI=sua_uri_do_mongodb
-WATSON_API_KEY=sua_chave_api_do_watson
-WATSON_URL=sua_url_do_watson
+# MongoDB
+DB_URI="mongodb://user:password@host1:port1,host2:port2,host3:port3/database?authSource=admin&replicaSet=replset&tls=true&tlsInsecure=true"
+
+# IBM Watson Assistant
+IBM_URL="https://api.us-south.assistant.watson.cloud.ibm.com"
+IBM_APIKEY="your-api-key-here"
+IBM_VERSION="2024-08-25"
+
+# Email Service
+ENVIO_EMAIL_URL="http://example.com/api/email/send?token="
+ENVIO_EMAIL_TOKEN="your-email-service-token-here"
 ```
+
+> ⚠️ **Importante**:
+>
+> - Substitua os valores de exemplo pelos valores reais do seu ambiente
+> - Mantenha o arquivo `.env` seguro e nunca o compartilhe ou comite no repositório
+> - Para desenvolvimento local, crie um arquivo `.env.local` com suas configurações
 
 ## 📦 Instalação
 
-```bash
-npm install
 ```
 
-## ▶️ Execução
-
-```bash
-npm start
-```
-
-## 🛠️ Desenvolvimento
-
-```bash
-npm run dev
-```
-
-## 🧪 Testes
-
-O projeto utiliza Jest como framework de testes. Os testes estão organizados na pasta `src/__tests__/` e seguem a mesma estrutura do código fonte.
-
-### Executando os Testes
-
-```bash
-# Executar todos os testes
-npm test
-
-# Executar testes em modo watch
-npm run test:watch
-
-# Executar testes com cobertura
-npm run test:coverage
-```
-
-### Estrutura dos Testes
-
-```
-src/__tests__/
-├── services/           # Testes dos serviços
-│   ├── assistant.service.test.ts
-│   ├── log.service.test.ts
-│   └── persistance.service.test.ts
-└── utils/             # Testes dos utilitários
-    └── logger.test.ts
-```
-
-Os testes cobrem:
-
-- Funcionalidades dos serviços
-- Manipulação de erros
-- Casos de sucesso e falha
-- Validações de dados
-- Comportamento do logger
-
-## 📝 Logging
-
-O sistema implementa um logger personalizado com as seguintes características:
-
-### Níveis de Log
-
-- `INFO`: Informações gerais sobre o fluxo da aplicação
-- `WARN`: Avisos sobre situações que merecem atenção
-- `ERROR`: Erros que precisam de intervenção
-- `DEBUG`: Informações detalhadas para debugging (só ativo em modo debug)
-
-### Funcionalidades
-
-- Formatação de data/hora no timezone do Brasil
-- Suporte a diferentes níveis de log
-- Monitoramento de rate limits da API
-- Modo debug configurável
-- Padrão Singleton para instância única
-
-### Exemplo de Uso
-
-```typescript
-const logger = LoggerImpl.getInstance();
-
-// Logs básicos
-logger.info("Processando assistente", { assistantId: "123" });
-logger.warn("Rate limit próximo do limite", { remaining: 10 });
-logger.error("Falha ao processar logs", error);
-
-// Log de rate limit
-logger.logRateLimit({
-  "x-ratelimit-remaining": "100",
-  "x-ratelimit-limit": "1000",
-  "x-ratelimit-reset": "1234567890",
-});
 ```
