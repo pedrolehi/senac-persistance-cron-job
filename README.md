@@ -312,6 +312,66 @@ ENVIO_EMAIL_TOKEN="your-email-service-token-here"
 
 ## 📦 Instalação
 
+```bash
+# Instalar dependências
+npm install
+
+# Criar arquivo .env com as configurações necessárias
+# Consulte a seção de Configuração acima para as variáveis necessárias
+```
+
+## ▶️ Execução
+
+```bash
+# Buildar o projeto
+npm run build
+
+# Iniciar o serviço
+npm start
+
+# Iniciar em modo desenvolvimento
+npm run dev
+```
+
+## 🧪 Testes
+
+O projeto utiliza Jest como framework de testes. Os testes estão organizados na pasta `src/__tests__/` e seguem a mesma estrutura do código fonte.
+
+### Executando os Testes
+
+```bash
+# Executar todos os testes
+npm test
+
+# Executar testes em modo watch
+npm run test:watch
+
+# Executar testes com cobertura
+npm run test:coverage
+```
+
+### Estrutura dos Testes
+
+```
+src/__tests__/
+├── services/           # Testes dos serviços
+│   ├── assistant.service.test.ts
+│   ├── email.service.test.ts
+│   ├── log-audit.service.test.ts
+│   ├── log.service.test.ts
+│   └── persistance.service.test.ts
+└── jobs/              # Testes dos jobs
+    └── cron.test.ts
+```
+
+Os testes cobrem:
+
+- Funcionalidades dos serviços (Assistant, Email, Log, Persistence)
+- Jobs agendados (Cron)
+- Manipulação de erros e exceções
+- Validações de dados e schemas
+- Integração com serviços externos
+
 ```
 
 ```
