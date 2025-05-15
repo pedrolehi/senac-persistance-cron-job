@@ -197,3 +197,77 @@ npm start
 ```bash
 npm run dev
 ```
+
+## 🧪 Testes
+
+O projeto utiliza Jest como framework de testes. Os testes estão organizados na pasta `src/__tests__/` e seguem a mesma estrutura do código fonte.
+
+### Executando os Testes
+
+```bash
+# Executar todos os testes
+npm test
+
+# Executar testes em modo watch
+npm run test:watch
+
+# Executar testes com cobertura
+npm run test:coverage
+```
+
+### Estrutura dos Testes
+
+```
+src/__tests__/
+├── services/           # Testes dos serviços
+│   ├── assistant.service.test.ts
+│   ├── log.service.test.ts
+│   └── persistance.service.test.ts
+└── utils/             # Testes dos utilitários
+    └── logger.test.ts
+```
+
+Os testes cobrem:
+
+- Funcionalidades dos serviços
+- Manipulação de erros
+- Casos de sucesso e falha
+- Validações de dados
+- Comportamento do logger
+
+## 📝 Logging
+
+O sistema implementa um logger personalizado com as seguintes características:
+
+### Níveis de Log
+
+- `INFO`: Informações gerais sobre o fluxo da aplicação
+- `WARN`: Avisos sobre situações que merecem atenção
+- `ERROR`: Erros que precisam de intervenção
+- `DEBUG`: Informações detalhadas para debugging (só ativo em modo debug)
+
+### Funcionalidades
+
+- Formatação de data/hora no timezone do Brasil
+- Suporte a diferentes níveis de log
+- Monitoramento de rate limits da API
+- Modo debug configurável
+- Padrão Singleton para instância única
+
+### Exemplo de Uso
+
+```typescript
+const logger = LoggerImpl.getInstance();
+
+// Logs básicos
+logger.info("Processando assistente", { assistantId: "123" });
+logger.warn("Rate limit próximo do limite", { remaining: 10 });
+logger.error("Falha ao processar logs", error);
+
+// Log de rate limit
+logger.logRateLimit({
+  "x-ratelimit-remaining": "100",
+  "x-ratelimit-limit": "1000",
+  "x-ratelimit-reset": "1234567890",
+});
+```
