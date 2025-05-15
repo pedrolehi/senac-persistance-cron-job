@@ -6,9 +6,11 @@ Este serviço é responsável por coletar, processar e persistir logs do Watson 
 
 ```
 src/
-├── config/         # Configurações do projeto e conexão com o banco (database.ts)
+├── __tests__/      # Testes automatizados
+├── config/         # Configurações do projeto e conexão com o banco
 ├── controllers/    # Controladores da aplicação
 ├── docs/           # Documentação e imagens
+├── jobs/           # Jobs agendados (cron jobs)
 ├── models/         # Modelos do MongoDB (gerados a partir dos schemas Zod)
 ├── repositories/   # Camada de acesso a dados
 ├── schemas/        # Schemas de validação (Zod)
