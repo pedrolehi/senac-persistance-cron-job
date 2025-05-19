@@ -1,7 +1,7 @@
 export const systemConfig = {
   timePeriod: 70, // Ex: timePeriod: 60 (in minutes)
   cronExpression: `0 * * * *`, //cron pattern que define a frequencia com que a tarefa é realizada. Ex: 0 * * * * (every hour)
-  filesPerPage: 200, // Ex: filesPerPage: 200
+  filesPerPage: 300, // Ex: filesPerPage: 200
   debug: process.env.NODE_ENV === "development", // Habilita logs de debug em ambiente de desenvolvimento
   excludedAssistants: [
     "HUB",

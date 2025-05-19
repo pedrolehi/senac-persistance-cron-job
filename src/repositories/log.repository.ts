@@ -4,6 +4,19 @@ import { SaveResult } from "../schemas/save-result.schema";
 import type { StandardizedLog } from "../schemas/standardized-log.schema";
 import type { LogsResponse } from "../schemas/logs.response.schema";
 
+// Interfaces para tipagem de erros
+interface MongoWriteError {
+  errmsg?: string;
+  message?: string;
+  code?: number;
+}
+
+interface MongoBulkWriteError extends Error {
+  writeErrors?: MongoWriteError[];
+  code?: number;
+  errorLabelSet?: Set<string>;
+}
+
 export class LogRepository {
   private static instance: LogRepository;
 
@@ -21,6 +34,10 @@ export class LogRepository {
     logs: StandardizedLog[]
   ): Promise<SaveResult> {
     const collectionName = assistantName.toLowerCase();
+    const batchSize = 500; // Processa 500 logs por vez
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 segundo
+
     try {
       console.log(
         `[DB][REPOSITORY] Nome do assistente recebido: ${assistantName}`
@@ -36,56 +53,106 @@ export class LogRepository {
         `[DB][REPOSITORY] Modelo obtido para collection ${collectionName}`
       );
 
-      // Prepara as operações de bulk write
-      const bulkOps = logs.map((log) => ({
-        updateOne: {
-          filter: { log_id: log.log_id },
-          update: { $set: log },
-          upsert: true,
-        },
-      }));
+      let totalSaved = 0;
+      let totalDuplicates = 0;
 
-      console.log(
-        `[DB][REPOSITORY] Operações de bulk write preparadas: ${bulkOps.length}`
-      );
-
-      // Executa todas as operações em uma única chamada
-      const result: any = await AssistantModel.bulkWrite(bulkOps, {
-        ordered: false,
-      });
-
-      const savedCount = result.upsertedCount;
-      const duplicatesCount = logs.length - savedCount;
-
-      const savedLogs =
-        result.upserted?.map((entry: any) => logs[entry.index]) || [];
-
-      console.log(
-        `[DB][REPOSITORY] ${savedCount} logs salvos com sucesso na collection ${collectionName}`
-      );
-      if (duplicatesCount > 0) {
+      // Divide os logs em lotes
+      for (let i = 0; i < logs.length; i += batchSize) {
+        const batch = logs.slice(i, i + batchSize);
         console.log(
-          `[DB][REPOSITORY] ${duplicatesCount} logs ignorados por serem duplicados`
+          `[DB][REPOSITORY] Processando lote ${
+            i / batchSize + 1
+          } de ${Math.ceil(logs.length / batchSize)} (${batch.length} logs)`
+        );
+
+        // Prepara as operações de bulk write para este lote
+        const bulkOps = batch.map((log) => ({
+          updateOne: {
+            filter: { log_id: log.log_id },
+            update: { $set: log },
+            upsert: true,
+          },
+        }));
+
+        // Tenta executar o bulk write com retry
+        let lastError: MongoBulkWriteError | undefined;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            const result = await AssistantModel.bulkWrite(bulkOps, {
+              ordered: false,
+            });
+
+            totalSaved += result.upsertedCount;
+            totalDuplicates += batch.length - result.upsertedCount;
+
+            console.log(
+              `[DB][REPOSITORY] Lote ${i / batchSize + 1}: ${
+                result.upsertedCount
+              } logs salvos, ${batch.length - result.upsertedCount} duplicados`
+            );
+            break; // Sucesso, sai do loop de retry
+          } catch (error: unknown) {
+            lastError = error as MongoBulkWriteError;
+            if (
+              lastError.errorLabelSet?.has("RetryableWriteError") &&
+              attempt < maxRetries
+            ) {
+              const delay = baseDelay * Math.pow(2, attempt - 1);
+              console.log(
+                `[DB][REPOSITORY] Tentativa ${attempt} falhou, aguardando ${delay}ms antes de tentar novamente...`
+              );
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              continue;
+            }
+            throw error; // Se não for retryable ou última tentativa, propaga o erro
+          }
+        }
+      }
+
+      console.log(
+        `[DB][REPOSITORY] Total: ${totalSaved} logs salvos com sucesso na collection ${collectionName}`
+      );
+      if (totalDuplicates > 0) {
+        console.log(
+          `[DB][REPOSITORY] Total: ${totalDuplicates} logs ignorados por serem duplicados`
         );
       }
 
       return {
         success: true,
-        count: savedCount,
-        duplicates: duplicatesCount,
-        savedLogs: savedLogs,
+        count: totalSaved,
+        duplicates: totalDuplicates,
       };
-    } catch (error: any) {
-      console.error(
-        `[DB][REPOSITORY] Erro ao salvar logs na collection ${collectionName}:`,
-        error
-      );
-      console.error(`[DB][REPOSITORY] Detalhes do erro:`, {
-        message: error.message,
-        code: error.code,
-        stack: error.stack,
-      });
-      if (error.code === 11000) {
+    } catch (error: unknown) {
+      const mongoError = error as MongoBulkWriteError;
+      // Agrupamento e deduplicação de erros
+      if (mongoError.writeErrors && Array.isArray(mongoError.writeErrors)) {
+        const errorSummary: Record<string, number> = {};
+        mongoError.writeErrors.forEach((e: MongoWriteError) => {
+          const msg = e.errmsg || e.message || JSON.stringify(e);
+          errorSummary[msg] = (errorSummary[msg] || 0) + 1;
+        });
+        const uniqueMessages = Object.keys(errorSummary);
+        uniqueMessages.forEach((msg) => {
+          console.error(`[DB][REPOSITORY][BULK] ${errorSummary[msg]}x: ${msg}`);
+        });
+        if (uniqueMessages.length > 10) {
+          console.warn(
+            `[DB][REPOSITORY][BULK] Mais de 10 tipos de erro únicos. Alguns foram omitidos.`
+          );
+        }
+      } else {
+        console.error(
+          `[DB][REPOSITORY] Erro ao salvar logs na collection ${collectionName}:`,
+          mongoError
+        );
+        console.error(`[DB][REPOSITORY] Detalhes do erro:`, {
+          message: mongoError.message,
+          code: mongoError.code,
+          stack: mongoError.stack,
+        });
+      }
+      if (mongoError.code === 11000) {
         console.warn(`[DB][REPOSITORY] Erro de duplicidade detectado.`);
       }
       throw error;

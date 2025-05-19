@@ -7,6 +7,7 @@ import { Log, LogCollection } from "../schemas/logs.schema";
 import { systemConfig } from "../config/system.config";
 import { Logger, LoggerImpl } from "../utils";
 import { ValidationError, TransformationError } from "../utils/errors";
+import { ZodError } from "zod";
 
 export class LogService {
   private assistantName: string;
@@ -44,41 +45,98 @@ export class LogService {
 
   private transformSingleLog(log: Log): StandardizedLog {
     try {
+      // Extrai informações do usuário com fallbacks
+      const userInfo = {
+        session_id: log.session_id || "",
+        chapa:
+          log.response?.context?.skills?.["main skill"]?.user_defined?.chapa ||
+          "",
+        emplid:
+          log.response?.context?.skills?.["main skill"]?.user_defined?.emplid ||
+          "",
+      };
+
+      // Extrai o user_id da IBM do contexto
+      const ibmUserId =
+        log.response?.context?.metadata?.user_id ||
+        log.response?.context?.global?.system?.user_id;
+
+      // Garante que o timestamp seja uma data válida
+      const timestamp = this.formatTimestamp(log.request_timestamp);
+
+      // Prepara o log padronizado apenas com os campos necessários
       const standardLog = {
         log_id: log.log_id || "",
-        conversation_id:
-          log.response?.context?.metadata?.user_id ||
-          log.response?.context?.global?.system?.user_id ||
-          "",
-        user: this.extractUserInfo(log),
+        timestamp: timestamp,
+        user: userInfo,
+        conversation_id: ibmUserId || "",
         context: log.response?.context || {},
         input: log.response?.input?.text || "",
         intents: log.response?.output?.intents || [],
         entities: log.response?.output?.entities || [],
         output: log.response?.output?.generic || [],
-        timestamp: this.formatTimestamp(log.request_timestamp),
       };
 
-      // console.log(`[LOG][SERVICE] Log transformado:`, {
-      //   log_id: standardLog.log_id,
-      //   timestamp: standardLog.timestamp,
-      //   input_length: standardLog.input.length,
-      //   intents_count: standardLog.intents.length,
-      //   entities_count: standardLog.entities.length,
-      // });
+      // Log para debug antes da validação
+      this.logger.debug("[TRANSFORM] Log antes da validação", {
+        log_id: standardLog.log_id,
+        has_context: !!standardLog.context,
+        has_ibm_user_id: !!ibmUserId,
+        timestamp: standardLog.timestamp,
+        conversation_id: standardLog.conversation_id,
+        user_info: standardLog.user,
+      });
 
-      return StandardizedLogSchema.parse(standardLog);
+      // Valida o log antes de retornar
+      const validatedLog = StandardizedLogSchema.parse(standardLog);
+
+      // Log para debug após a validação
+      this.logger.debug("[TRANSFORM] Log validado com sucesso", {
+        log_id: validatedLog.log_id,
+        conversation_id: validatedLog.conversation_id,
+        timestamp: validatedLog.timestamp,
+        user_info: validatedLog.user,
+      });
+
+      return validatedLog;
     } catch (error) {
-      this.logger.error(
-        `Erro ao transformar log do assistente ${this.assistantName}`,
-        error
-      );
+      if (error instanceof ZodError) {
+        this.logger.error(
+          `[ZOD][TRANSFORM] Erro de validação ao transformar log do assistente ${this.assistantName}`,
+          {
+            log_id: log.log_id,
+            etapa: "transformSingleLog",
+            log_data: JSON.stringify(log, null, 2),
+            zod_errors: error.errors.map((e) => ({
+              path: e.path,
+              expected: "expected" in e ? e.expected : undefined,
+              received: "received" in e ? e.received : undefined,
+              message: e.message,
+            })),
+          }
+        );
+      } else {
+        this.logger.error(
+          `[TRANSFORM] Erro inesperado ao transformar log do assistente ${this.assistantName}`,
+          {
+            error,
+            log_id: log.log_id,
+            etapa: "transformSingleLog",
+            log_data: JSON.stringify(log, null, 2),
+          }
+        );
+      }
       throw new TransformationError(
         `Falha ao transformar log ${log.log_id}: ${
           error instanceof Error ? error.message : String(error)
         }`
       );
     }
+  }
+
+  // Método público para transformar um único log
+  public transformSingleLogPublic(log: Log): StandardizedLog {
+    return this.transformSingleLog(log);
   }
 
   public transformLogs(logs: Log[]): StandardizedLog[] {

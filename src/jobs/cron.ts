@@ -36,15 +36,144 @@ export class CronJobs {
     return CronJobs.instance;
   }
 
-  private async promptForStart(): Promise<boolean> {
+  private async showMenu(): Promise<void> {
     const rl = readline.createInterface({ input, output });
 
-    return new Promise((resolve) => {
-      rl.question("Deseja iniciar o CronJob agora? (s/n): ", (answer) => {
-        rl.close();
-        resolve(answer.toLowerCase() === "s");
+    while (true) {
+      console.log("\n=== Menu de Opções ===");
+      console.log("1. Executar Auditoria para Data Específica");
+      console.log("2. Verificar Auditorias em Período");
+      console.log("3. Verificar Status dos Jobs");
+      console.log("4. Sair");
+      console.log("===================");
+
+      const answer = await new Promise<string>((resolve) => {
+        rl.question("Escolha uma opção (1-4): ", resolve);
       });
-    });
+
+      switch (answer) {
+        case "1":
+          await this.runAuditForSpecificDate(rl);
+          break;
+        case "2":
+          await this.checkAuditsInPeriod(rl);
+          break;
+        case "3":
+          this.checkJobsStatus();
+          break;
+        case "4":
+          console.log("Encerrando programa...");
+          rl.close();
+          return;
+        default:
+          console.log(
+            "Opção inválida. Por favor, escolha uma opção entre 1 e 4."
+          );
+      }
+    }
+  }
+
+  private async runAuditForSpecificDate(rl: readline.Interface): Promise<void> {
+    try {
+      const dateStr = await new Promise<string>((resolve) => {
+        rl.question("Digite a data desejada (DD/MM/YYYY): ", resolve);
+      });
+
+      const [day, month, year] = dateStr.split("/").map(Number);
+      const date = new Date(year, month - 1, day);
+
+      if (isNaN(date.getTime())) {
+        console.log("Data inválida. Por favor, use o formato DD/MM/YYYY.");
+        return;
+      }
+
+      console.log(`\nIniciando auditoria para a data: ${dateStr}`);
+      const auditReport = await this.logAuditService.auditLogsForDay(date);
+
+      console.log("\n[AUDIT][STATS] Resumo da auditoria:");
+      console.log(
+        `[AUDIT][STATS] Total de logs verificados: ${auditReport.summary.totalLogs}`
+      );
+      console.log(
+        `[AUDIT][STATS] Logs incluídos: ${auditReport.summary.includedLogs}`
+      );
+      console.log(
+        `[AUDIT][STATS] Logs faltantes: ${auditReport.summary.missingLogs}`
+      );
+      console.log(`[AUDIT][STATS] Status: ${auditReport.syncStatus.status}`);
+    } catch (error) {
+      console.error("[AUDIT][ERROR] Erro durante a auditoria:", error);
+    }
+  }
+
+  private async checkAuditsInPeriod(rl: readline.Interface): Promise<void> {
+    try {
+      const startDateStr = await new Promise<string>((resolve) => {
+        rl.question("Digite a data inicial (DD/MM/YYYY): ", resolve);
+      });
+
+      const endDateStr = await new Promise<string>((resolve) => {
+        rl.question("Digite a data final (DD/MM/YYYY): ", resolve);
+      });
+
+      const [startDay, startMonth, startYear] = startDateStr
+        .split("/")
+        .map(Number);
+      const [endDay, endMonth, endYear] = endDateStr.split("/").map(Number);
+
+      const startDate = new Date(startYear, startMonth - 1, startDay);
+      const endDate = new Date(endYear, endMonth - 1, endDay);
+
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        console.log("Data inválida. Por favor, use o formato DD/MM/YYYY.");
+        return;
+      }
+
+      console.log(
+        `\nVerificando auditorias no período: ${startDateStr} até ${endDateStr}`
+      );
+      await this.logAuditService.checkPreviousAudits(startDate, endDate);
+    } catch (error) {
+      console.error("[AUDIT][ERROR] Erro ao verificar auditorias:", error);
+    }
+  }
+
+  private async startCronJobs(): Promise<void> {
+    if (!CronJobs.hasStarted) {
+      CronJobs.hasStarted = true;
+    }
+
+    // Job de coleta e persistência
+    const collectionJob = new CronJob(
+      systemConfig.cronExpression,
+      () => {
+        console.log("[CRON][SCHEDULE] Iniciando job de coleta...");
+        this.runJob();
+      },
+      null,
+      true,
+      "America/Sao_Paulo",
+      this,
+      false
+    );
+
+    // Job de auditoria
+    const auditJob = new CronJob(
+      systemConfig.audit.cronExpression,
+      () => {
+        console.log("[AUDIT][SCHEDULE] Iniciando job de auditoria...");
+        this.runAuditJob();
+      },
+      null,
+      true,
+      "America/Sao_Paulo",
+      this,
+      false // Não executa imediatamente ao iniciar
+    );
+
+    collectionJob.start();
+    auditJob.start();
+    console.log("[CRON][INIT] Jobs iniciados com sucesso");
   }
 
   private async fetchRawLogs() {
@@ -219,13 +348,32 @@ export class CronJobs {
 
   private async runAuditJob() {
     try {
-      console.log(`[AUDIT][START] Iniciando auditoria às ${new Date()}`);
+      console.log(
+        `[AUDIT][START] Iniciando auditoria às ${new Date().toLocaleString(
+          "pt-BR",
+          {
+            timeZone: "America/Sao_Paulo",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }
+        )}`
+      );
 
       // Pega a data de ontem
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       yesterday.setHours(0, 0, 0, 0);
 
+      // Formata a data para exibição consistente
+      const auditDate = yesterday.toLocaleDateString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+      });
+
+      console.log(`[AUDIT][INFO] Iniciando auditoria para o dia ${auditDate}`);
       const auditReport = await this.logAuditService.auditLogsForDay(yesterday);
 
       console.log("[AUDIT][STATS] Resumo da auditoria:");
@@ -246,48 +394,43 @@ export class CronJobs {
     }
   }
 
-  public async startJobs() {
-    if (!CronJobs.hasStarted) {
-      const shouldStart = await this.promptForStart();
-      if (!shouldStart) {
-        console.log(
-          "[CRON][INIT] CronJob não iniciado por escolha do usuário."
-        );
-        return;
+  private checkJobsStatus(): void {
+    console.log("\n=== Status dos Jobs ===");
+    console.log(
+      `CronJob de Coleta: ${CronJobs.hasStarted ? "Ativo" : "Inativo"}`
+    );
+
+    if (CronJobs.hasStarted) {
+      try {
+        const cronExpression = systemConfig.cronExpression;
+        const interval = CronExpressionParser.parse(cronExpression, {
+          currentDate: new Date(),
+          tz: "America/Sao_Paulo",
+        });
+
+        const nextRun = interval.next().toDate();
+        const formattedNextRun = nextRun.toLocaleString("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+
+        console.log(`Próxima execução do CronJob: ${formattedNextRun}`);
+      } catch (error) {
+        console.error("Erro ao calcular próxima execução:", error);
       }
-      CronJobs.hasStarted = true;
     }
+    console.log("=====================");
+  }
 
-    // Job de coleta e persistência
-    const collectionJob = new CronJob(
-      systemConfig.cronExpression,
-      () => {
-        console.log("[CRON][SCHEDULE] Iniciando job de coleta...");
-        this.runJob();
-      },
-      null,
-      true,
-      "America/Sao_Paulo",
-      this,
-      false
-    );
-
-    // Job de auditoria
-    const auditJob = new CronJob(
-      systemConfig.audit.cronExpression,
-      () => {
-        console.log("[AUDIT][SCHEDULE] Iniciando job de auditoria...");
-        this.runAuditJob();
-      },
-      null,
-      true,
-      "America/Sao_Paulo",
-      this,
-      true // Não executa imediatamente ao iniciar
-    );
-
-    collectionJob.start();
-    auditJob.start();
-    console.log("[CRON][INIT] Jobs iniciados com sucesso");
+  public async startJobs() {
+    // Inicia os cronjobs automaticamente
+    await this.startCronJobs();
+    // Mostra o menu
+    await this.showMenu();
   }
 }

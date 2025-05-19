@@ -47,6 +47,11 @@ export class LogAuditService {
     const endDate = new Date(date);
     endDate.setUTCHours(23, 59, 59, 999);
 
+    // Formata a data para exibição consistente
+    const auditDate = date.toLocaleDateString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+    });
+
     // Verifica se já existe uma auditoria para este dia
     const existingAudit = await AuditModel.findOne({
       timestamp: {
@@ -56,19 +61,16 @@ export class LogAuditService {
     });
 
     if (existingAudit) {
-      this.logger.info(
-        `Auditoria para ${startDate.toLocaleDateString()} já existe`,
-        {
-          auditId: existingAudit._id,
-        }
-      );
+      this.logger.info(`Auditoria para ${auditDate} já existe`, {
+        auditId: existingAudit._id,
+      });
       return existingAudit;
     }
 
-    this.logger.info(
-      `Iniciando auditoria para o dia ${startDate.toLocaleDateString()}`,
-      { startDate, endDate }
-    );
+    this.logger.info(`Iniciando auditoria para o dia ${auditDate}`, {
+      startDate,
+      endDate,
+    });
 
     try {
       // Busca todos os logs do dia
@@ -78,7 +80,7 @@ export class LogAuditService {
       );
 
       // Gera o relatório de sincronização
-      const syncReport = await this.generateSyncReport(allLogs);
+      const syncReport = await this.generateSyncReport(allLogs, date);
 
       // Se houver logs faltantes, processa e salva
       if (syncReport.syncStatus.missingLogs.length > 0) {
@@ -137,13 +139,17 @@ export class LogAuditService {
               (log) => log.assistant === assistantName
             );
             if (hasMissingLogs) {
-              // Garante que o logCollection está no formato correto
+              // Mantém apenas os campos essenciais para reduzir o tamanho
               acc[assistantName] = {
-                logs: logCollection.logs,
+                logs: logCollection.logs.map((log) => ({
+                  log_id: log.log_id || "",
+                  request_timestamp:
+                    log.request_timestamp || new Date().toISOString(),
+                  response_timestamp:
+                    log.response_timestamp || new Date().toISOString(),
+                })),
                 pagination: {
                   next_url: logCollection.pagination.next_url,
-                  matched: logCollection.pagination.matched,
-                  refresh_url: logCollection.pagination.refresh_url,
                 },
               };
             }
@@ -164,10 +170,7 @@ export class LogAuditService {
       const logsDir = path.join(process.cwd(), systemConfig.audit.reportPath);
       await fs.mkdir(logsDir, { recursive: true });
 
-      const timestamp = new Date()
-        .toISOString()
-        .split(".")[0]
-        .replace(/[:]/g, "-");
+      const timestamp = date.toISOString().split(".")[0].replace(/[:]/g, "-");
       const reportPath = path.join(logsDir, `sync-report-${timestamp}.json`);
 
       await fs.writeFile(
@@ -189,9 +192,9 @@ export class LogAuditService {
     } catch (error) {
       // Em caso de erro, salva um relatório de erro
       const errorReport = {
-        timestamp: new Date().toISOString(),
+        timestamp: date.toISOString(),
         syncStatus: {
-          status: "ERROR",
+          status: "FAILURE",
           missingLogs: [],
           includedLogs: [],
           error: error instanceof Error ? error.message : "Erro desconhecido",
@@ -205,6 +208,7 @@ export class LogAuditService {
           missingLogs: 0,
           assistants: [],
         },
+        sanitizedLogs: {}, // Removendo logs sanitizados para reduzir tamanho
         auditDate: {
           start: startDate.toISOString(),
           end: endDate.toISOString(),
@@ -289,7 +293,10 @@ export class LogAuditService {
     }
   }
 
-  private async generateSyncReport(logs: LogsResponse): Promise<SyncReport> {
+  private async generateSyncReport(
+    logs: LogsResponse,
+    date: Date
+  ): Promise<SyncReport> {
     const assistants = Object.keys(logs.assistants || {});
     const syncStatus: SyncStatus = {
       status: "SUCCESS",
@@ -347,7 +354,7 @@ export class LogAuditService {
     }
 
     const report = {
-      timestamp: new Date().toISOString(),
+      timestamp: date.toISOString(),
       syncStatus,
       summary: {
         totalLogs:

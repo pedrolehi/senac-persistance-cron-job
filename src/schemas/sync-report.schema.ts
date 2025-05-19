@@ -44,7 +44,7 @@ export const SyncReportSchema = z.object({
     missingLogs: z.number(),
     assistants: z.array(AssistantSummarySchema),
   }),
-  sanitizedLogs: z.record(z.string(), LogCollectionSchema).default({}),
+  sanitizedLogs: z.any().default({}), // Usando any para permitir objetos complexos
 });
 
 // Tipo gerado a partir do schema

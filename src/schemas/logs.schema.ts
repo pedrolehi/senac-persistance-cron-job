@@ -16,7 +16,7 @@ export const LogSchema = z.object({
   language: z.string().describe("Idioma da conversa"),
   customer_id: z.string().optional().describe("ID do cliente (opcional)"),
   assistant_id: z.string().describe("ID do assistente virtual"),
-  session_id: z.string().describe("ID da sessão da conversa"),
+  session_id: z.string().optional().describe("ID da sessão da conversa"),
   input: z.any().describe("Dados de entrada da conversa"),
   response: z.any().describe("Dados de resposta da conversa"),
 });

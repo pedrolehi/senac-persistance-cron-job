@@ -33,57 +33,46 @@ export class EmailService {
 
   public async sendErrorNotification(error: Error, context: any = {}) {
     try {
-      const errorMessage = `
-<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 800px; margin: 0 auto; padding: 20px; }
-    .header { background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
-    .error-details { background-color: #fff3f3; padding: 15px; border-left: 4px solid #dc3545; margin-bottom: 20px; }
-    .context { background-color: #f8f9fa; padding: 15px; border-radius: 5px; }
-    pre { background-color: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto; }
-    .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 0.9em; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Erro no Processamento de Logs</h1>
-    </div>
+      // Mensagem simplificada do erro com limite de tamanho
+      const MAX_MESSAGE_LENGTH = 1000; // Limite de 1000 caracteres
+      let errorMessage = error.message || "Erro desconhecido";
 
-    <div class="error-details">
-      <h2>Detalhes do Erro</h2>
-      <ul>
-        <li><strong>Tipo:</strong> ${error.name}</li>
-        <li><strong>Mensagem:</strong> ${error.message}</li>
-      </ul>
-      <h3>Stack Trace:</h3>
-      <pre>${error.stack}</pre>
-    </div>
+      // Trunca a mensagem se for muito grande
+      if (errorMessage.length > MAX_MESSAGE_LENGTH) {
+        errorMessage = errorMessage.substring(0, MAX_MESSAGE_LENGTH) + "...";
+      }
 
-    <div class="context">
-      <h2>Contexto</h2>
-      <pre>${JSON.stringify(context, null, 2)}</pre>
-    </div>
+      const emailContent = `
+Erro no Processamento de Logs
 
-    <div class="footer">
-      <p>Este é um email automático do sistema de persistência de logs.</p>
-    </div>
-  </div>
-</body>
-</html>`;
+Detalhes do Erro:
+${errorMessage}
+
+Este é um email automático do sistema de persistência de logs.`;
 
       for (const email of systemConfig.email.stakeholders) {
         const params = {
           assunto: "[SERVICE][PERSISTENCE] Erro ao processar logs",
-          mensagem: errorMessage,
+          mensagem: emailContent,
           remetente: "assistentevirtual@sp.senac.br",
           destinatario: email,
         };
 
         try {
+          // Verifica o tamanho total do payload
+          const payloadSize = JSON.stringify(params).length;
+          if (payloadSize > 5000) {
+            // Limite de 5KB para o payload total
+            this.logger.warn(
+              "Payload do email muito grande, truncando mensagem",
+              {
+                originalSize: payloadSize,
+                recipient: email,
+              }
+            );
+            params.mensagem = params.mensagem.substring(0, 500);
+          }
+
           await axios({
             method: "POST",
             url: this.emailUrl,
@@ -98,18 +87,26 @@ export class EmailService {
             errorName: error.name,
             recipient: email,
           });
-        } catch (emailError) {
-          this.logger.error("Erro ao enviar email de notificação", {
-            originalError: error,
-            emailError,
+        } catch (emailError: any) {
+          // Simplifica o log de erro para mostrar apenas informações essenciais
+          const errorInfo = {
+            status: emailError.response?.status,
+            message: emailError.response?.data?.Message || emailError.message,
             recipient: email,
-          });
-          throw emailError;
+          };
+
+          this.logger.error("Erro ao enviar email de notificação", errorInfo);
+          console.error("Erro ao enviar email:", errorInfo);
         }
       }
-    } catch (error) {
-      this.logger.error("Erro ao processar notificação de erro", { error });
-      throw error;
+    } catch (error: any) {
+      // Simplifica o log de erro para mostrar apenas informações essenciais
+      const errorInfo = {
+        message: error.message || "Erro desconhecido",
+      };
+
+      this.logger.error("Erro ao processar notificação de erro", errorInfo);
+      console.error("Erro ao processar notificação:", errorInfo);
     }
   }
 }
