@@ -12,16 +12,10 @@ export const RateLimitHeadersSchema = z.object({
 });
 
 export const LoggerSchema = z.object({
-  info: z.function().args(z.string(), z.unknown().optional()).returns(z.void()),
-  warn: z.function().args(z.string(), z.unknown().optional()).returns(z.void()),
-  error: z
-    .function()
-    .args(z.string(), z.unknown().optional())
-    .returns(z.void()),
-  debug: z
-    .function()
-    .args(z.string(), z.unknown().optional())
-    .returns(z.void()),
+  info: z.function().args(z.string(), z.any().optional()).returns(z.void()),
+  warn: z.function().args(z.string(), z.any()).returns(z.void()),
+  error: z.function().args(z.string(), z.any()).returns(z.void()),
+  debug: z.function().args(z.string(), z.any()).returns(z.void()),
   logRateLimit: z
     .function()
     .args(RateLimitHeadersSchema, z.string().optional())

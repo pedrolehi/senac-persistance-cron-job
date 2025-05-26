@@ -6,9 +6,9 @@ import { LogAuditService } from "../services/log-audit.service";
 import { systemConfig } from "../config/system.config";
 import { LogsResponse } from "../schemas/logs.response.schema";
 import { stdin as input, stdout as output } from "process";
-import { promises as fs, truncate } from "fs";
+// import { promises as fs, truncate } from "fs";
 import readline from "readline";
-import path from "path";
+// import path from "path";
 import { CronJob } from "cron";
 import CronExpressionParser from "cron-parser";
 import { getTimeInterval } from "../utils/timeParser";
@@ -200,32 +200,6 @@ export class CronJobs {
 
       const saveResults = await this.PersistanceService.saveProcessedLogs(
         standardizedLogs
-      );
-
-      // Agrupar todos os logs que foram realmente salvos
-      const savedLogsOnly: any = {};
-      for (const [assistantName, result] of Object.entries(saveResults)) {
-        savedLogsOnly[assistantName] = result.savedLogs || [];
-      }
-
-      const now = new Date().toISOString().split(".")[0].replace(/[:]/g, "-");
-      const logsDir = path.join(process.cwd(), "logs");
-
-      await fs.mkdir(logsDir, { recursive: true });
-
-      const fullLogsData = {
-        timestamp: new Date().toISOString(),
-        raw: rawLogs,
-        standardized: savedLogsOnly,
-      };
-
-      await fs.writeFile(
-        path.join(logsDir, `logs-${now}.json`),
-        JSON.stringify(fullLogsData, null, 2),
-        "utf-8"
-      );
-      console.log(
-        `[CRON][SAVE] Arquivo logs-${now}.json exportado com sucesso!`
       );
 
       const results = Object.values(saveResults);

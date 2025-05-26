@@ -86,7 +86,7 @@ export class LogAuditService {
       if (syncReport.syncStatus.missingLogs.length > 0) {
         this.logger.info(
           `Encontrados ${syncReport.syncStatus.missingLogs.length} logs faltantes. Iniciando processamento...`,
-          { missingLogs: syncReport.syncStatus.missingLogs }
+          undefined
         );
 
         // Cria um novo LogsResponse apenas com os logs faltantes
