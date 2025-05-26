@@ -326,12 +326,34 @@ npm install
 # Buildar o projeto
 npm run build
 
-# Iniciar o serviço
+# Iniciar o serviço (modo serviço - padrão para produção/homologação)
 npm start
 
-# Iniciar em modo desenvolvimento
+# Iniciar em modo desenvolvimento (inclui menu interativo)
+NODE_ENV=development npm start
+
+# Iniciar em modo desenvolvimento com hot-reload
 npm run dev
 ```
+
+### Modos de Execução
+
+A aplicação pode ser executada em dois modos:
+
+1. **Modo Serviço (Padrão para Produção/Homologação)**
+
+   - Inicia os cron jobs automaticamente
+   - Roda em background sem interface interativa
+   - Ideal para ambientes de produção e containers
+   - Não requer entrada do usuário
+   - Executa auditorias automaticamente conforme agendamento
+
+2. **Modo Desenvolvimento**
+   - Inicia os cron jobs automaticamente
+   - Exibe um menu de opções para interação
+   - Permite executar auditorias manualmente
+   - Útil para desenvolvimento e depuração
+   - Ativado automaticamente quando `NODE_ENV=development`
 
 ## 🧪 Testes
 

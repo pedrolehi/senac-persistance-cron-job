@@ -174,6 +174,9 @@ export class CronJobs {
     collectionJob.start();
     auditJob.start();
     console.log("[CRON][INIT] Jobs iniciados com sucesso");
+
+    // Mostra o status dos jobs
+    this.checkJobsStatus();
   }
 
   private async fetchRawLogs() {
@@ -402,6 +405,11 @@ export class CronJobs {
   }
 
   public async startJobs() {
+    // Inicia os cronjobs automaticamente
+    await this.startCronJobs();
+  }
+
+  public async startInteractiveMode() {
     // Inicia os cronjobs automaticamente
     await this.startCronJobs();
     // Mostra o menu

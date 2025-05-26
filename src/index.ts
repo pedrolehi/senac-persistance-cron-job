@@ -24,7 +24,22 @@ async function start() {
 
     // Inicia os cron jobs
     const cronJobs = CronJobs.getInstance();
-    await cronJobs.startJobs();
+
+    // Verifica o ambiente
+    const isDev = process.env.NODE_ENV === "dev";
+
+    if (isDev) {
+      console.log(
+        "Ambiente de desenvolvimento detectado. Iniciando em modo interativo..."
+      );
+      await cronJobs.startInteractiveMode();
+    } else {
+      console.log(
+        "Ambiente de produção/homologação detectado. Iniciando em modo serviço..."
+      );
+      await cronJobs.startJobs();
+    }
+
     console.log("Cron jobs started successfully");
   } catch (err) {
     console.error("Error starting service:", err);
