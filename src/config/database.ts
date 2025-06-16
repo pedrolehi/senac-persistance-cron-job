@@ -5,8 +5,10 @@ dotenv.config();
 export async function connectToMongoDB() {
   try {
     await mongoose.connect(process.env.DB_URI!, {
-      socketTimeoutMS: 30000,
-      connectTimeoutMS: 30000,
+      socketTimeoutMS: 120000,
+      connectTimeoutMS: 120000,
+      serverSelectionTimeoutMS: 120000,
+      maxPoolSize: 10,
     });
 
     console.log("✅ MongoDB conectado");

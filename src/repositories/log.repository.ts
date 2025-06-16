@@ -34,9 +34,9 @@ export class LogRepository {
     logs: StandardizedLog[]
   ): Promise<SaveResult> {
     const collectionName = assistantName.toLowerCase();
-    const batchSize = 500; // Processa 500 logs por vez
-    const maxRetries = 3;
-    const baseDelay = 1000; // 1 segundo
+    const batchSize = 100; // Reduzido para 100 logs por vez
+    const maxRetries = 5; // Aumentado para 5 tentativas
+    const baseDelay = 2000; // 2 segundos de delay base
 
     try {
       console.log(
@@ -80,6 +80,7 @@ export class LogRepository {
           try {
             const result = await AssistantModel.bulkWrite(bulkOps, {
               ordered: false,
+              writeConcern: { w: "majority", wtimeout: 60000 }, // Timeout de 60 segundos para cada operação
             });
 
             totalSaved += result.upsertedCount;
@@ -94,10 +95,11 @@ export class LogRepository {
           } catch (error: unknown) {
             lastError = error as MongoBulkWriteError;
             if (
-              lastError.errorLabelSet?.has("RetryableWriteError") &&
+              (lastError.errorLabelSet?.has("RetryableWriteError") ||
+                lastError.code === 11000) && // Erro de duplicidade
               attempt < maxRetries
             ) {
-              const delay = baseDelay * Math.pow(2, attempt - 1);
+              const delay = baseDelay * Math.pow(2, attempt - 1); // Backoff exponencial
               console.log(
                 `[DB][REPOSITORY] Tentativa ${attempt} falhou, aguardando ${delay}ms antes de tentar novamente...`
               );
